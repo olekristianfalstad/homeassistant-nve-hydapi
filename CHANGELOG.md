@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6
+
+- Resize brand assets to valid Home Assistant dimensions so the icon can be shown in Home Assistant and HACS.
+
 ## 0.1.5
 
 - Round sensor states to two decimals before Home Assistant stores them in history.
