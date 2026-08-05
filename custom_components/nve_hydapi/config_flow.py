@@ -29,21 +29,19 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_SERIES,
     CONF_SERIES_TO_REMOVE,
-    CONF_STATION_QUERY,
+    CONF_STATION_ID,
     DEFAULT_SCAN_INTERVAL_MINUTES,
     DOMAIN,
     MIN_SCAN_INTERVAL_MINUTES,
     RESOLUTION_LABELS,
 )
 
-MAX_SERIES_CHOICES = 80
-
-
-async def _validate_api_key(hass: HomeAssistant, api_key: str) -> NveHydApiClient:
-    """Validate API key and return a client."""
+async def _load_active_station_options(
+    hass: HomeAssistant, api_key: str
+) -> dict[str, str]:
+    """Validate the API key and return searchable active station options."""
     client = NveHydApiClient(async_get_clientsession(hass), api_key)
-    await client.async_validate_api_key()
-    return client
+    return _build_station_options(await client.async_get_active_stations())
 
 
 def _scan_interval_selector(default: int) -> NumberSelector:
@@ -75,6 +73,43 @@ def _series_option_label(series: dict[str, Any]) -> str:
     )
 
 
+def _station_option_label(station: dict[str, Any]) -> str:
+    """Build a concise searchable label for a HydAPI station."""
+    station_id = str(station["stationId"])
+    label = f"{station.get('stationName') or station_id} [{station_id}]"
+    location = station.get("councilName") or station.get("countyName")
+    if location:
+        label = f"{label} - {location}"
+    return label
+
+
+def _build_station_options(stations: list[dict[str, Any]]) -> dict[str, str]:
+    """Convert HydAPI station metadata to sorted selector options."""
+    options = {
+        str(station["stationId"]): _station_option_label(station)
+        for station in stations
+        if station.get("stationId")
+    }
+    return dict(sorted(options.items(), key=lambda item: item[1].casefold()))
+
+
+def _station_schema(options: dict[str, str]) -> vol.Schema:
+    """Return a searchable station selector schema."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_STATION_ID): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        {"value": value, "label": label}
+                        for value, label in options.items()
+                    ],
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            )
+        }
+    )
+
+
 def _build_choices(series_list: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Convert HydAPI series metadata to selectable choices."""
     choices: dict[str, dict[str, Any]] = {}
@@ -99,8 +134,6 @@ def _build_choices(series_list: list[dict[str, Any]]) -> dict[str, dict[str, Any
                 "resolution_time": res_time,
                 "version_number": version,
             }
-            if len(choices) >= MAX_SERIES_CHOICES:
-                return choices
     return choices
 
 
@@ -174,6 +207,7 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._api_key: str | None = None
         self._scan_interval = DEFAULT_SCAN_INTERVAL_MINUTES
         self._selected_series: list[dict[str, Any]] = []
+        self._station_options: dict[str, str] = {}
         self._choices: dict[str, dict[str, Any]] = {}
 
     @staticmethod
@@ -197,13 +231,18 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._api_key = user_input[CONF_API_KEY]
             self._scan_interval = int(user_input[CONF_SCAN_INTERVAL])
             try:
-                await _validate_api_key(self.hass, self._api_key)
+                self._station_options = await _load_active_station_options(
+                    self.hass, self._api_key
+                )
             except NveHydApiAuthError:
                 errors["base"] = "invalid_auth"
             except NveHydApiError:
                 errors["base"] = "cannot_connect"
             else:
-                return await self.async_step_station()
+                if not self._station_options:
+                    errors["base"] = "no_stations"
+                else:
+                    return await self.async_step_station()
 
         return self.async_show_form(
             step_id="user",
@@ -229,11 +268,18 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             assert self._api_key is not None
+            station_id = str(user_input[CONF_STATION_ID])
+            if station_id not in self._station_options:
+                errors[CONF_STATION_ID] = "invalid_station"
+                return self.async_show_form(
+                    step_id="station",
+                    data_schema=_station_schema(self._station_options),
+                    errors=errors,
+                )
+
             client = NveHydApiClient(async_get_clientsession(self.hass), self._api_key)
             try:
-                series_list = await client.async_search_series(
-                    user_input[CONF_STATION_QUERY]
-                )
+                series_list = await client.async_get_station_series(station_id)
             except NveHydApiAuthError:
                 errors["base"] = "invalid_auth"
             except NveHydApiError:
@@ -247,13 +293,7 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="station",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_STATION_QUERY): TextSelector(
-                        TextSelectorConfig()
-                    ),
-                }
-            ),
+            data_schema=_station_schema(self._station_options),
             errors=errors,
         )
 
@@ -325,20 +365,36 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
             config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_MINUTES)
         )
         self._selected_series = list(config_entry.options.get(CONF_SERIES, []))
+        self._station_options: dict[str, str] = {}
         self._choices: dict[str, dict[str, Any]] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Manage options."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
             self._scan_interval = int(user_input[CONF_SCAN_INTERVAL])
             action = user_input["action"]
             if action == "add":
-                return await self.async_step_station()
+                try:
+                    self._station_options = await _load_active_station_options(
+                        self.hass, self._config_entry.data[CONF_API_KEY]
+                    )
+                except NveHydApiAuthError:
+                    errors["base"] = "invalid_auth"
+                except NveHydApiError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    if not self._station_options:
+                        errors["base"] = "no_stations"
+                    else:
+                        return await self.async_step_station()
             if action == "remove":
                 return await self.async_step_remove()
-            return self._save_options()
+            if action == "finish":
+                return self._save_options()
 
         return self.async_show_form(
             step_id="init",
@@ -360,6 +416,7 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
                     ),
                 }
             ),
+            errors=errors,
         )
 
     async def async_step_station(
@@ -369,14 +426,21 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            station_id = str(user_input[CONF_STATION_ID])
+            if station_id not in self._station_options:
+                errors[CONF_STATION_ID] = "invalid_station"
+                return self.async_show_form(
+                    step_id="station",
+                    data_schema=_station_schema(self._station_options),
+                    errors=errors,
+                )
+
             client = NveHydApiClient(
                 async_get_clientsession(self.hass),
                 self._config_entry.data[CONF_API_KEY],
             )
             try:
-                series_list = await client.async_search_series(
-                    user_input[CONF_STATION_QUERY]
-                )
+                series_list = await client.async_get_station_series(station_id)
             except NveHydApiAuthError:
                 errors["base"] = "invalid_auth"
             except NveHydApiError:
@@ -390,13 +454,7 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="station",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_STATION_QUERY): TextSelector(
-                        TextSelectorConfig()
-                    ),
-                }
-            ),
+            data_schema=_station_schema(self._station_options),
             errors=errors,
         )
 

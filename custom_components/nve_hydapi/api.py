@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
 
 from .const import HYDAPI_BASE_URL
-
-STATION_ID_RE = re.compile(r"^\d+\.\d+\.(\d+|\*)$")
-
 
 class NveHydApiError(Exception):
     """Base error for NVE HydAPI."""
@@ -42,21 +38,20 @@ class NveHydApiClient:
         self._session = session
         self._api_key = api_key
 
-    async def async_validate_api_key(self) -> None:
-        """Validate that the API key can call HydAPI."""
-        await self._request("GET", "/Parameters")
+    async def async_get_active_stations(self) -> list[dict[str, Any]]:
+        """Return all active HydAPI stations."""
+        result = await self._request(
+            "GET", "/Stations", params={"Active": "OnlyActive"}
+        )
+        return result.get("data") or []
 
-    async def async_search_series(self, query: str) -> list[dict[str, Any]]:
-        """Search series by station id or station name."""
-        query = query.strip()
-        params: dict[str, str] = {}
-
-        if STATION_ID_RE.match(query):
-            params["StationId"] = query
-        else:
-            params["StationName"] = query
-
-        result = await self._request("GET", "/Series", params=params)
+    async def async_get_station_series(
+        self, station_id: str
+    ) -> list[dict[str, Any]]:
+        """Return all series belonging to one station."""
+        result = await self._request(
+            "GET", "/Series", params={"StationId": station_id}
+        )
         return result.get("data") or []
 
     async def async_fetch_observations(

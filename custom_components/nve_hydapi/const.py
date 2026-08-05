@@ -11,7 +11,7 @@ CONF_RESOLUTION_TIME = "resolution_time"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_SERIES = "series"
 CONF_SERIES_TO_REMOVE = "series_to_remove"
-CONF_STATION_QUERY = "station_query"
+CONF_STATION_ID = "station_id"
 
 DEFAULT_SCAN_INTERVAL_MINUTES = 15
 MIN_SCAN_INTERVAL_MINUTES = 10

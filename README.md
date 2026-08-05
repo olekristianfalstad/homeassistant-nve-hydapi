@@ -13,8 +13,8 @@ The integration uses one coordinated HydAPI POST request for all selected series
 3. Go to Settings -> Devices & services -> Add integration.
 4. Search for `NVE HydAPI`.
 5. Enter your HydAPI API key.
-6. Search for a station by name or station ID.
-7. Pick the desired parameter and resolution.
+6. Select an active station from the searchable station list.
+7. Pick one or more desired parameters and resolutions for that station.
 
 ## Notes
 
@@ -26,7 +26,7 @@ The integration uses one coordinated HydAPI POST request for all selected series
 
 ## Examples
 
-Station searches can be names like:
+Start typing a station name or ID to filter the active station list. Examples include:
 
 - Grunnfossen
 - Torrisdal
@@ -34,7 +34,7 @@ Station searches can be names like:
 - Hegra bru
 - Samlop Funna
 
-Station IDs also work directly, for example `6.10.0`.
+The list labels include both station name and station ID, for example `6.10.0`.
 
 ## Files
 

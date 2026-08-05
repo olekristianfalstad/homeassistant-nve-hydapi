@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.9
+
+- Load active HydAPI stations after API key validation and show them in a searchable station selector.
+- Fetch all available series only after a station has been selected.
+- Use `nb.json` for Norwegian Bokmal translations and align Norwegian and English translation keys.
+- Add a genuine 512x512 `icon@2x.png` generated from NVE's official SVG artwork.
+
 ## 0.1.8
 
 - Use the official positive and negative NVE main logos for light and dark Home Assistant themes.

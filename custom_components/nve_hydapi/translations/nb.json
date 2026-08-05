@@ -15,10 +15,10 @@
       },
       "station": {
         "data": {
-          "station_query": "Stasjonsnavn eller stasjons-ID"
+          "station_id": "Aktiv stasjon"
         },
         "data_description": {
-          "station_query": "Eksempler: Grunnfossen, Hegra bru eller 6.10.0."
+          "station_id": "Begynn å skrive et stasjonsnavn eller en stasjons-ID for å filtrere listen. Velg en stasjon for å hente tilgjengelige måleserier."
         }
       },
       "series": {
@@ -42,7 +42,9 @@
       "cannot_connect": "Kunne ikke koble til HydAPI.",
       "custom_name_single_series": "Egendefinert navn kan bare brukes når du velger én serie.",
       "invalid_auth": "HydAPI avviste API-nøkkelen.",
-      "no_series": "Fant ingen serier som matcher søket."
+      "invalid_station": "Velg en stasjon fra listen.",
+      "no_series": "Fant ingen serier for den valgte stasjonen.",
+      "no_stations": "HydAPI returnerte ingen aktive stasjoner."
     },
     "abort": {
       "already_configured": "NVE HydAPI er allerede satt opp."
@@ -58,7 +60,10 @@
       },
       "station": {
         "data": {
-          "station_query": "Stasjonsnavn eller stasjons-ID"
+          "station_id": "Aktiv stasjon"
+        },
+        "data_description": {
+          "station_id": "Begynn å skrive et stasjonsnavn eller en stasjons-ID for å filtrere listen. Velg en stasjon for å hente tilgjengelige måleserier."
         }
       },
       "series": {
@@ -87,7 +92,9 @@
       "cannot_connect": "Kunne ikke koble til HydAPI.",
       "custom_name_single_series": "Egendefinert navn kan bare brukes når du velger én serie.",
       "invalid_auth": "HydAPI avviste API-nøkkelen.",
-      "no_series": "Fant ingen serier som matcher søket."
+      "invalid_station": "Velg en stasjon fra listen.",
+      "no_series": "Fant ingen serier for den valgte stasjonen.",
+      "no_stations": "HydAPI returnerte ingen aktive stasjoner."
     }
   }
 }
