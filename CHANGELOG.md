@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Round sensor states to two decimals before Home Assistant stores them in history.
+
 ## 0.1.4
 
 - Show NVE as the manufacturer for HydAPI station devices in Home Assistant.

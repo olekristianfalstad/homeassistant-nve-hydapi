@@ -27,6 +27,8 @@ from .const import (
 )
 from .coordinator import NveHydApiCoordinator
 
+VALUE_PRECISION = 2
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -45,7 +47,7 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
 
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 2
+    _attr_suggested_display_precision = VALUE_PRECISION
 
     def __init__(
         self,
@@ -73,7 +75,10 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
         item = self._coordinator_item
         if item is None:
             return None
-        return item.get("value")
+        value = item.get("value")
+        if not isinstance(value, (float, int)):
+            return None
+        return round(value, VALUE_PRECISION)
 
     @property
     def available(self) -> bool:
