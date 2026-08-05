@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- Use the official positive and negative NVE main logos for light and dark Home Assistant themes.
+
 ## 0.1.7
 
 - Replace the legacy NVE brand artwork with NVE's current official logo.
