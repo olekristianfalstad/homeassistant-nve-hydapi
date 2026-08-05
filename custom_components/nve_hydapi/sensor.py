@@ -21,8 +21,8 @@ from .const import (
     CONF_CUSTOM_NAME,
     CONF_SERIES,
     DOMAIN,
-    INTEGRATION_AUTHOR,
     INTEGRATION_URL,
+    MANUFACTURER,
     RESOLUTION_LABELS,
 )
 from .coordinator import NveHydApiCoordinator
@@ -61,7 +61,7 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
         self._attr_native_unit_of_measurement = selected_series.get("unit")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, selected_series["station_id"])},
-            manufacturer=INTEGRATION_AUTHOR,
+            manufacturer=MANUFACTURER,
             name=selected_series.get("station_name") or selected_series["station_id"],
             configuration_url=INTEGRATION_URL,
         )

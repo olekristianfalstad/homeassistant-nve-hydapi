@@ -18,8 +18,8 @@ MIN_SCAN_INTERVAL_MINUTES = 10
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=DEFAULT_SCAN_INTERVAL_MINUTES)
 
 HYDAPI_BASE_URL = "https://hydapi.nve.no/api/v1"
-INTEGRATION_AUTHOR = "Ole Kristian Falstad"
 INTEGRATION_URL = "https://github.com/olekristianfalstad/"
+MANUFACTURER = "NVE"
 
 RESOLUTION_LABELS = {
     "0": "Momentan",

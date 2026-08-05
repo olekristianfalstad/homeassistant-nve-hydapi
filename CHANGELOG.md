@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Show NVE as the manufacturer for HydAPI station devices in Home Assistant.
+
 ## 0.1.3
 
 - Allow selecting multiple HydAPI series from the same station search.
