@@ -53,6 +53,7 @@
   "options": {
     "step": {
       "init": {
+        "title": "Oppdatering og måleserier",
         "description": "Her kan du endre hvor ofte data hentes og administrere valgte måleserier. Alle måleseriene hentes samlet i én HydAPI-forespørsel per oppdatering.\n\n**Nåværende oppsett:** {station_count} stasjoner og {series_count} måleserier.",
         "data": {
           "scan_interval": "Oppdateringsintervall",

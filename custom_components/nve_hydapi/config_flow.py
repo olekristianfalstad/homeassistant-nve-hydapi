@@ -99,15 +99,30 @@ def _station_schema(options: dict[str, str]) -> vol.Schema:
         {
             vol.Required(CONF_STATION_ID): SelectSelector(
                 SelectSelectorConfig(
-                    options=[
-                        {"value": value, "label": label}
-                        for value, label in options.items()
-                    ],
+                    options=list(options.values()),
                     custom_value=True,
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             )
         }
+    )
+
+
+def _station_id_from_selection(
+    selection: Any, options: dict[str, str]
+) -> str | None:
+    """Resolve a selected station label or exact ID to a station ID."""
+    selected_value = str(selection)
+    if selected_value in options:
+        return selected_value
+
+    return next(
+        (
+            station_id
+            for station_id, label in options.items()
+            if label == selected_value
+        ),
+        None,
     )
 
 
@@ -269,8 +284,10 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             assert self._api_key is not None
-            station_id = str(user_input[CONF_STATION_ID])
-            if station_id not in self._station_options:
+            station_id = _station_id_from_selection(
+                user_input[CONF_STATION_ID], self._station_options
+            )
+            if station_id is None:
                 errors[CONF_STATION_ID] = "invalid_station"
                 return self.async_show_form(
                     step_id="station",
@@ -435,8 +452,10 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            station_id = str(user_input[CONF_STATION_ID])
-            if station_id not in self._station_options:
+            station_id = _station_id_from_selection(
+                user_input[CONF_STATION_ID], self._station_options
+            )
+            if station_id is None:
                 errors[CONF_STATION_ID] = "invalid_station"
                 return self.async_show_form(
                     step_id="station",

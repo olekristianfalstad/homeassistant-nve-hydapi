@@ -53,6 +53,7 @@
   "options": {
     "step": {
       "init": {
+        "title": "Updates and measurement series",
         "description": "Change how often data is fetched and manage the selected measurement series. All selected series are fetched together in one HydAPI request per update.\n\n**Current setup:** {station_count} stations and {series_count} measurement series.",
         "data": {
           "scan_interval": "Update interval",

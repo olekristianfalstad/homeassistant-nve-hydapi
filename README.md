@@ -16,6 +16,8 @@ The integration uses one coordinated HydAPI POST request for all selected series
 6. Start typing in the station search field and select an active station from the live suggestions.
 7. Pick one or more desired parameters and resolutions for that station.
 
+After updating through HACS, restart Home Assistant before opening the integration options. If old labels are still visible, refresh the Home Assistant page so the browser loads the updated translations.
+
 ## Notes
 
 - You need an API key from NVE HydAPI. Create or find it at <https://hydapi.nve.no/Users>.

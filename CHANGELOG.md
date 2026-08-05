@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.11
+
+- Keep the full station name, station ID, and municipality visible after selecting a live station suggestion.
+- Add a translated title to the options dialog and retain the setup summary and interval guidance introduced in 0.1.10.
+- Document the required Home Assistant restart and browser refresh after updating translations.
+
 ## 0.1.10
 
 - Replace the station dropdown with an editable search field that filters active stations and shows live suggestions.
