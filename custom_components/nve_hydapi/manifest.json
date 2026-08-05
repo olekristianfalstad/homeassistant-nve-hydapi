@@ -1,0 +1,15 @@
+{
+  "domain": "nve_hydapi",
+  "name": "NVE HydAPI",
+  "codeowners": [
+    "@olekristianfalstad"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/olekristianfalstad/",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/olekristianfalstad/",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.1.1"
+}

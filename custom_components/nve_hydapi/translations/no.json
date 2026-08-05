@@ -1,0 +1,73 @@
+{
+  "title": "NVE HydAPI",
+  "config": {
+    "step": {
+      "user": {
+        "description": "Du trenger en personlig API-nøkkel fra NVE HydAPI for å bruke denne integrasjonen. Hent eller opprett nøkkel på [hydapi.nve.no/Users](https://hydapi.nve.no/Users).",
+        "data": {
+          "api_key": "HydAPI API-nøkkel",
+          "scan_interval": "Oppdateringsintervall"
+        },
+        "data_description": {
+          "api_key": "Lim inn API-nøkkelen fra NVE HydAPI. Nøkkelen lagres lokalt i Home Assistant.",
+          "scan_interval": "Anbefalt intervall er 15 minutter. HydAPI/Sildre-data oppdateres normalt ikke kontinuerlig, så integrasjonen bør ikke spørre oftere enn nødvendig. Minimum er 10 minutter. Alle valgte serier hentes samlet i ett HydAPI-kall per oppdatering."
+        }
+      },
+      "station": {
+        "data": {
+          "station_query": "Stasjonsnavn eller stasjons-ID"
+        },
+        "data_description": {
+          "station_query": "Eksempler: Grunnfossen, Hegra bru eller 6.10.0."
+        }
+      },
+      "series": {
+        "data": {
+          "series": "Dataserie",
+          "custom_name": "Egendefinert sensornavn",
+          "add_another": "Legg til en serie til"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kunne ikke koble til HydAPI.",
+      "invalid_auth": "HydAPI avviste API-nøkkelen.",
+      "no_series": "Fant ingen serier som matcher søket."
+    },
+    "abort": {
+      "already_configured": "NVE HydAPI er allerede satt opp."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Oppdateringsintervall",
+          "action": "Handling"
+        }
+      },
+      "station": {
+        "data": {
+          "station_query": "Stasjonsnavn eller stasjons-ID"
+        }
+      },
+      "series": {
+        "data": {
+          "series": "Dataserie",
+          "custom_name": "Egendefinert sensornavn",
+          "add_another": "Legg til en serie til"
+        }
+      },
+      "remove": {
+        "data": {
+          "series_to_remove": "Serie som skal fjernes"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kunne ikke koble til HydAPI.",
+      "invalid_auth": "HydAPI avviste API-nøkkelen.",
+      "no_series": "Fant ingen serier som matcher søket."
+    }
+  }
+}

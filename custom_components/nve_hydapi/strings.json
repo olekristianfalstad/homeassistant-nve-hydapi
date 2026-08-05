@@ -1,0 +1,73 @@
+{
+  "title": "NVE HydAPI",
+  "config": {
+    "step": {
+      "user": {
+        "description": "You need a personal API key from NVE HydAPI to use this integration. Create or find your key at [hydapi.nve.no/Users](https://hydapi.nve.no/Users).",
+        "data": {
+          "api_key": "HydAPI API key",
+          "scan_interval": "Update interval"
+        },
+        "data_description": {
+          "api_key": "Paste the API key from NVE HydAPI. The key is stored locally in Home Assistant.",
+          "scan_interval": "Recommended interval is 15 minutes. HydAPI/Sildre data is normally not updated continuously, so the integration should not query more often than necessary. Minimum is 10 minutes. All selected series are fetched together in one HydAPI request per update."
+        }
+      },
+      "station": {
+        "data": {
+          "station_query": "Station name or station ID"
+        },
+        "data_description": {
+          "station_query": "Examples: Grunnfossen, Hegra bru, or 6.10.0."
+        }
+      },
+      "series": {
+        "data": {
+          "series": "Data series",
+          "custom_name": "Custom sensor name",
+          "add_another": "Add another series"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to HydAPI.",
+      "invalid_auth": "HydAPI rejected the API key.",
+      "no_series": "No matching series were found."
+    },
+    "abort": {
+      "already_configured": "NVE HydAPI is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Update interval",
+          "action": "Action"
+        }
+      },
+      "station": {
+        "data": {
+          "station_query": "Station name or station ID"
+        }
+      },
+      "series": {
+        "data": {
+          "series": "Data series",
+          "custom_name": "Custom sensor name",
+          "add_another": "Add another series"
+        }
+      },
+      "remove": {
+        "data": {
+          "series_to_remove": "Series to remove"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to HydAPI.",
+      "invalid_auth": "HydAPI rejected the API key.",
+      "no_series": "No matching series were found."
+    }
+  }
+}
