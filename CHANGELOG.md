@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Replace the legacy NVE brand artwork with NVE's current official logo.
+
 ## 0.1.6
 
 - Resize brand assets to valid Home Assistant dimensions so the icon can be shown in Home Assistant and HACS.
