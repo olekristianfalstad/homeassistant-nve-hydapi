@@ -6,10 +6,10 @@
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/olekristianfalstad/",
+  "documentation": "https://github.com/olekristianfalstad/homeassistant-nve-hydapi",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/olekristianfalstad/",
+  "issue_tracker": "https://github.com/olekristianfalstad/homeassistant-nve-hydapi/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.1.2"
+  "version": "0.1.3"
 }

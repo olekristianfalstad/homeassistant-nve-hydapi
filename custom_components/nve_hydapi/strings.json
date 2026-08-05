@@ -25,12 +25,22 @@
         "data": {
           "series": "Data series",
           "custom_name": "Custom sensor name",
-          "add_another": "Add another series"
+          "add_another": "Add series from another station"
+        },
+        "data_description": {
+          "custom_name": "Can only be used when selecting one series. Sensors can also be renamed later in Home Assistant."
+        }
+      },
+      "continue": {
+        "description": "The selected series are ready to save. Submit to finish, or select the option below to search another station.",
+        "data": {
+          "add_another": "Search another station before saving"
         }
       }
     },
     "error": {
       "cannot_connect": "Could not connect to HydAPI.",
+      "custom_name_single_series": "A custom name can only be used when selecting one series.",
       "invalid_auth": "HydAPI rejected the API key.",
       "no_series": "No matching series were found."
     },
@@ -55,7 +65,16 @@
         "data": {
           "series": "Data series",
           "custom_name": "Custom sensor name",
-          "add_another": "Add another series"
+          "add_another": "Add series from another station"
+        },
+        "data_description": {
+          "custom_name": "Can only be used when selecting one series. Sensors can also be renamed later in Home Assistant."
+        }
+      },
+      "continue": {
+        "description": "The selected series are ready to save. Submit to finish, or select the option below to search another station.",
+        "data": {
+          "add_another": "Search another station before saving"
         }
       },
       "remove": {
@@ -66,6 +85,7 @@
     },
     "error": {
       "cannot_connect": "Could not connect to HydAPI.",
+      "custom_name_single_series": "A custom name can only be used when selecting one series.",
       "invalid_auth": "HydAPI rejected the API key.",
       "no_series": "No matching series were found."
     }

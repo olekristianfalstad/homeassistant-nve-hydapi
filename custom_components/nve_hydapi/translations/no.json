@@ -23,14 +23,24 @@
       },
       "series": {
         "data": {
-          "series": "Dataserie",
+          "series": "Dataserier",
           "custom_name": "Egendefinert sensornavn",
-          "add_another": "Legg til en serie til"
+          "add_another": "Legg til serier fra en annen stasjon"
+        },
+        "data_description": {
+          "custom_name": "Kan bare brukes når du velger én serie. Sensorer kan også gis nytt navn senere i Home Assistant."
+        }
+      },
+      "continue": {
+        "description": "De valgte seriene er klare til å lagres. Trykk Send inn for å avslutte, eller velg alternativet nedenfor for å søke etter en annen stasjon.",
+        "data": {
+          "add_another": "Søk etter en annen stasjon før lagring"
         }
       }
     },
     "error": {
       "cannot_connect": "Kunne ikke koble til HydAPI.",
+      "custom_name_single_series": "Egendefinert navn kan bare brukes når du velger én serie.",
       "invalid_auth": "HydAPI avviste API-nøkkelen.",
       "no_series": "Fant ingen serier som matcher søket."
     },
@@ -53,9 +63,18 @@
       },
       "series": {
         "data": {
-          "series": "Dataserie",
+          "series": "Dataserier",
           "custom_name": "Egendefinert sensornavn",
-          "add_another": "Legg til en serie til"
+          "add_another": "Legg til serier fra en annen stasjon"
+        },
+        "data_description": {
+          "custom_name": "Kan bare brukes når du velger én serie. Sensorer kan også gis nytt navn senere i Home Assistant."
+        }
+      },
+      "continue": {
+        "description": "De valgte seriene er klare til å lagres. Trykk Send inn for å avslutte, eller velg alternativet nedenfor for å søke etter en annen stasjon.",
+        "data": {
+          "add_another": "Søk etter en annen stasjon før lagring"
         }
       },
       "remove": {
@@ -66,6 +85,7 @@
     },
     "error": {
       "cannot_connect": "Kunne ikke koble til HydAPI.",
+      "custom_name_single_series": "Egendefinert navn kan bare brukes når du velger én serie.",
       "invalid_auth": "HydAPI avviste API-nøkkelen.",
       "no_series": "Fant ingen serier som matcher søket."
     }

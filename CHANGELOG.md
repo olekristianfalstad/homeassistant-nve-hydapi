@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3
+
+- Allow selecting multiple HydAPI series from the same station search.
+- Do not select "add another series" by default.
+- Add a confirmation step so an unintended "add another" choice can still be saved.
+- Prevent duplicate series when editing integration options.
+
 ## 0.1.2
 
 - Add repository-level `brand/icon.png` and `brand/logo.png` so HACS can show the integration logo in repository listings.

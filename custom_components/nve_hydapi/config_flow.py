@@ -105,7 +105,7 @@ def _build_choices(series_list: list[dict[str, Any]]) -> dict[str, dict[str, Any
 
 
 def _select_schema(options: dict[str, str]) -> vol.Schema:
-    """Return schema for choosing a HydAPI series."""
+    """Return schema for choosing one or more HydAPI series."""
     return vol.Schema(
         {
             vol.Required(CONF_SERIES): SelectSelector(
@@ -115,12 +115,53 @@ def _select_schema(options: dict[str, str]) -> vol.Schema:
                         for value, label in options.items()
                     ],
                     mode=SelectSelectorMode.DROPDOWN,
+                    multiple=True,
                 )
             ),
             vol.Optional(CONF_CUSTOM_NAME): str,
-            vol.Required(CONF_ADD_ANOTHER, default=True): bool,
+            vol.Required(CONF_ADD_ANOTHER, default=False): bool,
         }
     )
+
+
+def _selected_choice_keys(user_input: dict[str, Any]) -> list[str]:
+    """Return selected choice keys as a list."""
+    selected = user_input[CONF_SERIES]
+    return [selected] if isinstance(selected, str) else list(selected)
+
+
+def _series_identity(series: dict[str, Any]) -> tuple[str, int, str, Any]:
+    """Return the fields that uniquely identify a HydAPI series."""
+    return (
+        str(series["station_id"]),
+        int(series["parameter"]),
+        str(series["resolution_time"]),
+        series.get("version_number"),
+    )
+
+
+def _append_selected_choices(
+    selected_series: list[dict[str, Any]],
+    choices: dict[str, dict[str, Any]],
+    choice_keys: list[str],
+    custom_name: str,
+) -> None:
+    """Append selected choices without adding duplicate HydAPI series."""
+    existing = {_series_identity(series) for series in selected_series}
+    for choice_key in choice_keys:
+        selected = dict(choices[choice_key])
+        identity = _series_identity(selected)
+        if identity in existing:
+            continue
+        if custom_name:
+            selected[CONF_CUSTOM_NAME] = custom_name
+        selected_series.append(selected)
+        existing.add(identity)
+
+
+def _continue_schema() -> vol.Schema:
+    """Return schema for recovering from an unintended add-another choice."""
+    return vol.Schema({vol.Required(CONF_ADD_ANOTHER, default=False): bool})
 
 
 class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -219,32 +260,58 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_series(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
-        """Select one of the discovered HydAPI series."""
+        """Select discovered HydAPI series."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            selected = dict(self._choices[user_input[CONF_SERIES]])
+            choice_keys = _selected_choice_keys(user_input)
             custom_name = (user_input.get(CONF_CUSTOM_NAME) or "").strip()
-            if custom_name:
-                selected[CONF_CUSTOM_NAME] = custom_name
-            if selected not in self._selected_series:
-                self._selected_series.append(selected)
+            if custom_name and len(choice_keys) > 1:
+                errors[CONF_CUSTOM_NAME] = "custom_name_single_series"
+            else:
+                _append_selected_choices(
+                    self._selected_series,
+                    self._choices,
+                    choice_keys,
+                    custom_name,
+                )
 
-            if user_input[CONF_ADD_ANOTHER]:
-                self._choices = {}
-                return await self.async_step_station()
+                if user_input[CONF_ADD_ANOTHER]:
+                    return await self.async_step_continue()
 
-            return self.async_create_entry(
-                title="NVE HydAPI",
-                data={CONF_API_KEY: self._api_key},
-                options={
-                    CONF_SCAN_INTERVAL: self._scan_interval,
-                    CONF_SERIES: self._selected_series,
-                },
-            )
+                return self._create_entry()
 
         options = {key: _series_option_label(value) for key, value in self._choices.items()}
         return self.async_show_form(
             step_id="series",
             data_schema=_select_schema(options),
+            errors=errors,
+        )
+
+    async def async_step_continue(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Confirm whether another station should be added."""
+        if user_input is not None:
+            if user_input[CONF_ADD_ANOTHER]:
+                self._choices = {}
+                return await self.async_step_station()
+            return self._create_entry()
+
+        return self.async_show_form(
+            step_id="continue",
+            data_schema=_continue_schema(),
+        )
+
+    def _create_entry(self) -> config_entries.ConfigFlowResult:
+        """Create the configured NVE HydAPI entry."""
+        return self.async_create_entry(
+            title="NVE HydAPI",
+            data={CONF_API_KEY: self._api_key},
+            options={
+                CONF_SCAN_INTERVAL: self._scan_interval,
+                CONF_SERIES: self._selected_series,
+            },
         )
 
 
@@ -336,22 +403,45 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
     async def async_step_series(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
-        """Add a selected series in options."""
+        """Add selected series in options."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            selected = dict(self._choices[user_input[CONF_SERIES]])
+            choice_keys = _selected_choice_keys(user_input)
             custom_name = (user_input.get(CONF_CUSTOM_NAME) or "").strip()
-            if custom_name:
-                selected[CONF_CUSTOM_NAME] = custom_name
-            if selected not in self._selected_series:
-                self._selected_series.append(selected)
-            if user_input[CONF_ADD_ANOTHER]:
-                return await self.async_step_station()
-            return self._save_options()
+            if custom_name and len(choice_keys) > 1:
+                errors[CONF_CUSTOM_NAME] = "custom_name_single_series"
+            else:
+                _append_selected_choices(
+                    self._selected_series,
+                    self._choices,
+                    choice_keys,
+                    custom_name,
+                )
+                if user_input[CONF_ADD_ANOTHER]:
+                    return await self.async_step_continue()
+                return self._save_options()
 
         options = {key: _series_option_label(value) for key, value in self._choices.items()}
         return self.async_show_form(
             step_id="series",
             data_schema=_select_schema(options),
+            errors=errors,
+        )
+
+    async def async_step_continue(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Confirm whether another station should be added."""
+        if user_input is not None:
+            if user_input[CONF_ADD_ANOTHER]:
+                self._choices = {}
+                return await self.async_step_station()
+            return self._save_options()
+
+        return self.async_show_form(
+            step_id="continue",
+            data_schema=_continue_schema(),
         )
 
     async def async_step_remove(
