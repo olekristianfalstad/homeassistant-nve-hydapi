@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Add repository-level `brand/icon.png` and `brand/logo.png` so HACS can show the integration logo in repository listings.
+
 ## 0.1.1
 
 - Add HACS-ready Home Assistant custom integration structure.
