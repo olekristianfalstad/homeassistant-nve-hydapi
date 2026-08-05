@@ -13,7 +13,7 @@ The integration uses one coordinated HydAPI POST request for all selected series
 3. Go to Settings -> Devices & services -> Add integration.
 4. Search for `NVE HydAPI`.
 5. Enter your HydAPI API key.
-6. Select an active station from the searchable station list.
+6. Start typing in the station search field and select an active station from the live suggestions.
 7. Pick one or more desired parameters and resolutions for that station.
 
 ## Notes

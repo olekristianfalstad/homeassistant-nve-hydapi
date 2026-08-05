@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10
+
+- Replace the station dropdown with an editable search field that filters active stations and shows live suggestions.
+- Add the current station and measurement-series counts to the options dialog.
+- Add clear update-interval guidance and translated measurement-series actions to the options dialog.
+
 ## 0.1.9
 
 - Load active HydAPI stations after API key validation and show them in a searchable station selector.

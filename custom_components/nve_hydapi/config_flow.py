@@ -103,6 +103,7 @@ def _station_schema(options: dict[str, str]) -> vol.Schema:
                         {"value": value, "label": label}
                         for value, label in options.items()
                     ],
+                    custom_value=True,
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             )
@@ -406,17 +407,25 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
                     ): _scan_interval_selector(self._scan_interval),
                     vol.Required("action", default="finish"): SelectSelector(
                         SelectSelectorConfig(
-                            options=[
-                                {"value": "finish", "label": "Lagre"},
-                                {"value": "add", "label": "Legg til serie"},
-                                {"value": "remove", "label": "Fjern serie"},
-                            ],
+                            options=["finish", "add", "remove"],
                             mode=SelectSelectorMode.DROPDOWN,
+                            translation_key="options_action",
                         )
                     ),
                 }
             ),
             errors=errors,
+            description_placeholders={
+                "station_count": str(
+                    len(
+                        {
+                            str(series["station_id"])
+                            for series in self._selected_series
+                        }
+                    )
+                ),
+                "series_count": str(len(self._selected_series)),
+            },
         )
 
     async def async_step_station(
