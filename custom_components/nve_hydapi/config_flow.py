@@ -358,9 +358,14 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except (NveHydApiError, TimeoutError):
                     errors["base"] = "cannot_connect"
                 else:
-                    return self.async_update_reload_and_abort(
-                        entry,
-                        data_updates={CONF_API_KEY: api_key},
+                    changed = self.hass.config_entries.async_update_entry(
+                        entry=entry, data={**entry.data, CONF_API_KEY: api_key}
+                    )
+                    # Loaded entries reload through their update listener.
+                    # Failed setup and unchanged keys need an explicit reload.
+                    if not entry.update_listeners or not changed:
+                        self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                    return self.async_abort(
                         reason=(
                             "reauth_successful"
                             if step_id == "reauth_confirm"

@@ -5,6 +5,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, patch
 
 from homeassistant.core import HomeAssistant
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -35,8 +36,10 @@ class CredentialTests(IsolatedAsyncioTestCase):
             }],
         }
         self.entry.pref_disable_polling = False
+        self.entry.update_listeners = []
         self.hass.config_entries = Mock()
         self.hass.config_entries.async_get_known_entry.return_value = self.entry
+        self.hass.config_entries.flow.async_progress_by_handler.return_value = []
         self.flow = NveHydApiConfigFlow()
         self.flow.hass = self.hass
         self.flow.context = {"source": "reconfigure", "entry_id": self.entry.entry_id}
@@ -73,9 +76,23 @@ class CredentialTests(IsolatedAsyncioTestCase):
         self.assertIs(update["entry"], self.entry)
         self.assertEqual(update["data"], {"api_key": "new-test-key", "unrelated": "preserve"})
         self.assertEqual(self.entry.options, options_before)
-        self.assertNotIsInstance(update["options"], dict)
+        self.assertNotIn("options", update)
         self.client.async_validate_api_key.assert_awaited_once()
         self.assertEqual(self.client_type.call_args.args[1], "new-test-key")
+        self.hass.config_entries.async_schedule_reload.assert_called_once_with("existing-entry")
+
+    async def test_loaded_entry_uses_its_update_listener_without_double_reload(self):
+        self.entry.update_listeners = [Mock()]
+        self.hass.config_entries.async_update_entry.return_value = True
+        result = await self.flow.async_step_reconfigure({"api_key": "new-test-key"})
+        self.assertEqual(result["reason"], "reconfigure_successful")
+        self.hass.config_entries.async_update_entry.assert_called_once()
+        self.hass.config_entries.async_schedule_reload.assert_not_called()
+
+    async def test_unchanged_valid_key_still_reloads(self):
+        self.entry.update_listeners = [Mock()]
+        self.hass.config_entries.async_update_entry.return_value = False
+        await self.flow.async_step_reconfigure({"api_key": "old-test-key"})
         self.hass.config_entries.async_schedule_reload.assert_called_once_with("existing-entry")
 
     async def test_reauth_uses_same_entry_and_requires_valid_replacement(self):
@@ -139,4 +156,7 @@ class CredentialTests(IsolatedAsyncioTestCase):
         coordinator = NveHydApiCoordinator(self.hass, self.entry, client)
         await coordinator.async_refresh()
         self.assertFalse(coordinator.last_update_success)
-        self.entry.async_start_reauth.assert_called_once_with(self.hass)
+        if hasattr(ConfigEntry, "async_start_reauth_if_available"):
+            self.entry.async_start_reauth_if_available.assert_called_once_with(self.hass)
+        else:
+            self.entry.async_start_reauth.assert_called_once_with(self.hass)
