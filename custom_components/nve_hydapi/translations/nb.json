@@ -10,7 +10,7 @@
         },
         "data_description": {
           "api_key": "Lim inn API-nøkkelen fra NVE HydAPI. Nøkkelen lagres lokalt i Home Assistant.",
-          "scan_interval": "Anbefalt intervall er 15 minutter. HydAPI/Sildre-data oppdateres normalt ikke kontinuerlig, så integrasjonen bør ikke spørre oftere enn nødvendig. Minimum er 10 minutter. Alle valgte serier hentes samlet i ett HydAPI-kall per oppdatering."
+          "scan_interval": "Anbefalt intervall er 15 minutter. Minimum er 10 minutter. Serier hentes samlet der det er mulig. Flere tidsoppløsninger eller versjoner av samme måletype på samme stasjon hentes i separate forespørsler for å unngå sammenblanding."
         }
       },
       "station": {
@@ -36,6 +36,20 @@
         "data": {
           "add_another": "Søk etter en annen stasjon før lagring"
         }
+      },
+      "reauth_confirm": {
+        "title": "Forny API-nøkkel",
+        "description": "HydAPI har avvist den lagrede API-nøkkelen. En ny API-nøkkel kontrolleres før den lagres. Stasjoner, måleserier og sensor-ID-er beholdes. Opprett nøkkel hos [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "data": {
+          "api_key": "Ny HydAPI API-nøkkel"
+        }
+      },
+      "reconfigure": {
+        "title": "Bytt API-nøkkel",
+        "description": "En ny API-nøkkel kontrolleres før den lagres. Stasjoner, måleserier og sensor-ID-er beholdes. Opprett nøkkel hos [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "data": {
+          "api_key": "Ny HydAPI API-nøkkel"
+        }
       }
     },
     "error": {
@@ -47,14 +61,16 @@
       "no_stations": "HydAPI returnerte ingen aktive stasjoner."
     },
     "abort": {
-      "already_configured": "NVE HydAPI er allerede satt opp."
+      "already_configured": "NVE HydAPI er allerede satt opp.",
+      "reconfigure_successful": "API-nøkkelen er oppdatert. Integrasjonen lastes inn på nytt.",
+      "reauth_successful": "API-nøkkelen er oppdatert. Integrasjonen lastes inn på nytt."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Oppdatering og måleserier",
-        "description": "Her kan du endre hvor ofte data hentes og administrere valgte måleserier. Alle måleseriene hentes samlet i én HydAPI-forespørsel per oppdatering.\n\n**Nåværende oppsett:** {station_count} stasjoner og {series_count} måleserier.",
+        "description": "Her kan du endre hvor ofte data hentes og administrere valgte måleserier. Serier hentes samlet der det er mulig. Flere tidsoppløsninger eller versjoner av samme måletype på samme stasjon hentes separat.\n\n**Nåværende oppsett:** {station_count} stasjoner og {series_count} måleserier.",
         "data": {
           "scan_interval": "Oppdateringsintervall",
           "action": "Administrer måleserier"

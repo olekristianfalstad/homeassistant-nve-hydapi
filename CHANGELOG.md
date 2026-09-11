@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.12
+
+- Prevent measurements from being assigned to the wrong resolution by separating ambiguous station/parameter combinations into independent batches.
+- Match responses by station, parameter and requested version, independent of response order; reject duplicate responses.
+- Require Home Assistant 2025.3.0 or newer for the coordinator and credential-update APIs.
+- Add automatic reauthentication when HydAPI rejects the stored API key, plus manual key replacement through Reconfigure.
+- Validate replacement keys before saving; preserve stations, series, sensor IDs and history.
+- Add regression tests against the minimum supported and current Home Assistant versions.
+
+Restart Home Assistant after updating. Multiple resolutions or versions of the same parameter at one station now require separate requests; other series remain batched.
+
 ## 0.1.11
 
 - Keep the full station name, station ID, and municipality visible after selecting a live station suggestion.

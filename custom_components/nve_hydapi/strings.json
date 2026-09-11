@@ -10,7 +10,7 @@
         },
         "data_description": {
           "api_key": "Paste the API key from NVE HydAPI. The key is stored locally in Home Assistant.",
-          "scan_interval": "Recommended interval is 15 minutes. HydAPI/Sildre data is normally not updated continuously, so the integration should not query more often than necessary. Minimum is 10 minutes. All selected series are fetched together in one HydAPI request per update."
+          "scan_interval": "The recommended interval is 15 minutes. The minimum is 10 minutes. Series are fetched together where possible. Multiple resolutions or versions of the same parameter at one station are fetched in separate requests to avoid mixing measurements."
         }
       },
       "station": {
@@ -36,6 +36,20 @@
         "data": {
           "add_another": "Search another station before saving"
         }
+      },
+      "reauth_confirm": {
+        "title": "Renew API key",
+        "description": "HydAPI rejected the stored API key. The new API key is checked before it is saved. Stations, measurement series and sensor IDs are preserved. Create a key at [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "data": {
+          "api_key": "New HydAPI API key"
+        }
+      },
+      "reconfigure": {
+        "title": "Change API key",
+        "description": "The new API key is checked before it is saved. Stations, measurement series and sensor IDs are preserved. Create a key at [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "data": {
+          "api_key": "New HydAPI API key"
+        }
       }
     },
     "error": {
@@ -47,14 +61,16 @@
       "no_stations": "HydAPI returned no active stations."
     },
     "abort": {
-      "already_configured": "NVE HydAPI is already configured."
+      "already_configured": "NVE HydAPI is already configured.",
+      "reconfigure_successful": "The API key has been updated. The integration will reload.",
+      "reauth_successful": "The API key has been updated. The integration will reload."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Updates and measurement series",
-        "description": "Change how often data is fetched and manage the selected measurement series. All selected series are fetched together in one HydAPI request per update.\n\n**Current setup:** {station_count} stations and {series_count} measurement series.",
+        "description": "Change how often data is fetched and manage the selected measurement series. Series are fetched together where possible. Multiple resolutions or versions of the same parameter at one station are fetched separately.\n\n**Current setup:** {station_count} stations and {series_count} measurement series.",
         "data": {
           "scan_interval": "Update interval",
           "action": "Manage measurement series"

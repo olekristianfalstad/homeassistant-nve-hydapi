@@ -8,9 +8,10 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import NveHydApiClient, NveHydApiError, series_key
+from .api import NveHydApiAuthError, NveHydApiClient, NveHydApiError, series_key
 from .const import (
     CONF_SCAN_INTERVAL,
     CONF_SERIES,
@@ -22,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NveHydApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
-    """Fetch all configured HydAPI series in one coordinated poll."""
+    """Fetch all configured HydAPI series in a coordinated poll."""
 
     def __init__(
         self,
@@ -53,6 +54,8 @@ class NveHydApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         """Fetch data from HydAPI."""
         try:
             return await self.client.async_fetch_observations(self.selected_series)
+        except NveHydApiAuthError as err:
+            raise ConfigEntryAuthFailed("HydAPI rejected the API key") from err
         except NveHydApiError as err:
             raise UpdateFailed(str(err)) from err
 

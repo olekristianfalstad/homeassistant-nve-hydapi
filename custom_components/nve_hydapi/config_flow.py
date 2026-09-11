@@ -315,6 +315,71 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reauth(
+        self, entry_data: dict[str, Any]
+    ) -> config_entries.ConfigFlowResult:
+        """Start recovery after HydAPI rejects the stored key."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Replace rejected credentials without recreating sensors."""
+        return await self._async_update_api_key(
+            self._get_reauth_entry(), "reauth_confirm", user_input
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Allow the user to replace their API key proactively."""
+        return await self._async_update_api_key(
+            self._get_reconfigure_entry(), "reconfigure", user_input
+        )
+
+    async def _async_update_api_key(
+        self,
+        entry: config_entries.ConfigEntry,
+        step_id: str,
+        user_input: dict[str, Any] | None,
+    ) -> config_entries.ConfigFlowResult:
+        """Validate the new key before updating the existing entry."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            api_key = user_input[CONF_API_KEY].strip()
+            if not api_key:
+                errors[CONF_API_KEY] = "invalid_auth"
+            else:
+                client = NveHydApiClient(async_get_clientsession(self.hass), api_key)
+                try:
+                    await client.async_validate_api_key()
+                except NveHydApiAuthError:
+                    errors["base"] = "invalid_auth"
+                except (NveHydApiError, TimeoutError):
+                    errors["base"] = "cannot_connect"
+                else:
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        data_updates={CONF_API_KEY: api_key},
+                        reason=(
+                            "reauth_successful"
+                            if step_id == "reauth_confirm"
+                            else "reconfigure_successful"
+                        ),
+                    )
+
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_API_KEY): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
     async def async_step_series(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:

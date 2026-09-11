@@ -1,0 +1,60 @@
+name: Tests and releases
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.13"
+            homeassistant: "2025.3.0"
+          - python: "3.14"
+            homeassistant: "2026.9.1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Home Assistant
+        run: python -m pip install "homeassistant==${{ matrix.homeassistant }}"
+      - name: Run regression tests
+        run: python -m unittest discover -s tests -v
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify version and extract release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          version = json.loads(Path("custom_components/nve_hydapi/manifest.json").read_text())["version"]
+          assert os.environ["RELEASE_TAG"] == f"v{version}", "Tag and manifest versions differ"
+          changelog = Path("CHANGELOG.md").read_text()
+          notes = changelog.split(f"\n## {version}\n", 1)[1].split("\n## ", 1)[0].strip()
+          Path("release-notes.md").write_text(notes)
+          PY
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" --verify-tag --title "NVE HydAPI ${RELEASE_TAG#v}" --notes-file release-notes.md

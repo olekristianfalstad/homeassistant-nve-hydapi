@@ -45,6 +45,10 @@ class NveHydApiClient:
         )
         return result.get("data") or []
 
+    async def async_validate_api_key(self) -> None:
+        """Validate credentials using the small parameter catalogue."""
+        await self._request("GET", "/Parameters")
+
     async def async_get_station_series(
         self, station_id: str
     ) -> list[dict[str, Any]]:
@@ -57,25 +61,10 @@ class NveHydApiClient:
     async def async_fetch_observations(
         self, selected_series: list[dict[str, Any]]
     ) -> dict[str, dict[str, Any]]:
-        """Fetch latest observations for all selected series in one POST request."""
+        """Fetch latest observations in batches with unambiguous identities."""
         if not selected_series:
             return {}
 
-        body = []
-        for item in selected_series:
-            request_item: dict[str, Any] = {
-                "stationId": item["station_id"],
-                "parameter": str(item["parameter"]),
-                "resolutionTime": str(item["resolution_time"]),
-            }
-            if item.get("version_number") is not None:
-                request_item["versionNumber"] = item["version_number"]
-            if item.get("reference_time"):
-                request_item["referenceTime"] = item["reference_time"]
-            body.append(request_item)
-
-        result = await self._request("POST", "/Observations", json=body)
-        response_series = result.get("data") or []
         values = {
             series_key(item): {
                 "series": item,
@@ -88,22 +77,54 @@ class NveHydApiClient:
             for item in selected_series
         }
 
-        unmatched_keys = list(values)
-        for data_item in response_series:
-            key = self._match_response_to_config(data_item, values, unmatched_keys)
-            if key is None:
-                continue
+        # HydAPI does not echo resolutionTime. Put repeated station/parameter
+        # combinations in separate batches, even if their versions differ.
+        groups: dict[tuple[str, str], list[str]] = {}
+        for key, value in values.items():
+            item = value["series"]
+            identity = (str(item["station_id"]), str(item["parameter"]))
+            groups.setdefault(identity, []).append(key)
 
-            observations = data_item.get("observations") or []
-            latest = observations[-1] if observations else {}
-            values[key] = {
-                "series": values[key]["series"],
-                "value": latest.get("value"),
-                "time": latest.get("time"),
-                "quality": latest.get("quality"),
-                "correction": latest.get("correction"),
-                "raw": data_item,
+        for index in range(max(len(keys) for keys in groups.values())):
+            batch = {
+                keys[index]: values[keys[index]]
+                for keys in groups.values()
+                if index < len(keys)
             }
+            body = []
+            for value in batch.values():
+                item = value["series"]
+                request_item: dict[str, Any] = {
+                    "stationId": item["station_id"],
+                    "parameter": str(item["parameter"]),
+                    "resolutionTime": str(item["resolution_time"]),
+                }
+                if item.get("version_number") is not None:
+                    request_item["versionNumber"] = item["version_number"]
+                if item.get("reference_time"):
+                    request_item["referenceTime"] = item["reference_time"]
+                body.append(request_item)
+
+            result = await self._request("POST", "/Observations", json=body)
+            seen: set[str] = set()
+            for data_item in result.get("data") or []:
+                key = self._match_response_to_config(data_item, batch)
+                if key is None:
+                    continue
+                if key in seen:
+                    raise NveHydApiError("HydAPI returned duplicate series")
+                seen.add(key)
+
+                observations = data_item.get("observations") or []
+                latest = observations[-1] if observations else {}
+                values[key] = {
+                    "series": values[key]["series"],
+                    "value": latest.get("value"),
+                    "time": latest.get("time"),
+                    "quality": latest.get("quality"),
+                    "correction": latest.get("correction"),
+                    "raw": data_item,
+                }
 
         return values
 
@@ -145,7 +166,6 @@ class NveHydApiClient:
     def _match_response_to_config(
         data_item: dict[str, Any],
         values: dict[str, dict[str, Any]],
-        unmatched_keys: list[str],
     ) -> str | None:
         """Match a HydAPI response item to one configured sensor."""
         station_id = str(data_item.get("stationId") or "")
@@ -153,21 +173,18 @@ class NveHydApiClient:
         version = data_item.get("serieVersionNo")
 
         candidates: list[str] = []
-        for key in unmatched_keys:
-            config = values[key]["series"]
-            if config["station_id"] != station_id:
+        for key, value in values.items():
+            config = value["series"]
+            if str(config["station_id"]) != station_id:
                 continue
             if str(config["parameter"]) != parameter:
                 continue
             config_version = config.get("version_number")
-            if config_version is not None and version is not None:
-                if int(config_version) != int(version):
-                    continue
+            if config_version is not None and str(config_version) != str(version):
+                continue
             candidates.append(key)
 
-        if not candidates:
+        if len(candidates) != 1:
             return None
 
-        key = candidates[0]
-        unmatched_keys.remove(key)
-        return key
+        return candidates[0]
