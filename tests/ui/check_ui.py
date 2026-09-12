@@ -89,8 +89,8 @@ def check_dialogs(browser, name):
     page = context.new_page()
     try:
         page.goto(BASE + "/config/integrations/integration/nve_hydapi")
-        page.get_by_label("Brukernavn", exact=True).fill("hydapi", timeout=60000)
-        page.get_by_label("Passord", exact=True).fill("local-test-only")
+        page.locator('input[name="username"]').fill("hydapi", timeout=60000)
+        page.locator('input[name="password"]').fill("local-test-only")
         page.get_by_role("button", name="Logg Inn", exact=True).click()
         page.wait_for_selector("home-assistant", timeout=60000)
         gear = page.get_by_role("button", name=re.compile("alternativer|konfigurer|options|configure", re.I))
@@ -105,10 +105,11 @@ def check_dialogs(browser, name):
         page.get_by_text("Behold valgte m\u00e5leserier", exact=False).first.click()
         page.get_by_text("Legg til m\u00e5leserier", exact=True).click()
         page.get_by_role("button", name="Send inn", exact=True).click()
-        page.get_by_role("combobox").first.click()
+        station_input = page.get_by_role("combobox").first
+        station_input.fill("Bj\u00f8rn")
         # HA's editable selector keeps the selected full label, not the raw ID.
         page.get_by_text("Bj\u00f8rnstad [139.15.0] - Namsskogan", exact=True).last.click()
-        expect(page.get_by_text("Bj\u00f8rnstad [139.15.0] - Namsskogan", exact=True).first).to_be_visible()
+        expect(station_input).to_have_value("Bj\u00f8rnstad [139.15.0] - Namsskogan")
         page.screenshot(path=str(ARTIFACTS / f"{name}-station.png"))
         page.get_by_role("button", name="Send inn", exact=True).click()
         page.get_by_role("combobox").first.click()
