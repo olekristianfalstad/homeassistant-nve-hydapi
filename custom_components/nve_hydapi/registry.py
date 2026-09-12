@@ -35,5 +35,9 @@ def async_cleanup_registry(hass: HomeAssistant, entry: ConfigEntry) -> None:
         if any(entity.config_entry_id == entry.entry_id for entity in
                er.async_entries_for_device(entities, device.id, include_disabled_entities=True)):
             continue
-        # Detach only this integration; a shared device belongs to other entries too.
-        devices.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+        # New HA registries split shared devices into one record per config entry.
+        if hasattr(device, "config_entry_id"):
+            if device.config_entry_id == entry.entry_id:
+                devices.async_remove_device(device.id)
+        else:
+            devices.async_update_device(device.id, remove_config_entry_id=entry.entry_id)

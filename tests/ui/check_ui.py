@@ -18,13 +18,14 @@ BASE = "http://127.0.0.1:8123"
 
 
 def start_server(config_dir, source, name):
+    onboarded = (config_dir / ".storage" / "onboarding").exists()
     log = (ARTIFACTS / f"{name}-server.log").open("w")
     process = subprocess.Popen([sys.executable, str(Path(__file__).with_name("serve.py")), str(config_dir), str(source)], stdout=log, stderr=subprocess.STDOUT)
     for _ in range(180):
         if process.poll() is not None:
             raise RuntimeError(f"Home Assistant exited; see {name}-server.log")
         try:
-            if requests.get(BASE + "/api/onboarding", timeout=3).status_code == 200:
+            if requests.get(BASE + ("/" if onboarded else "/api/onboarding"), timeout=3).status_code == 200:
                 return process, log
         except requests.RequestException:
             pass

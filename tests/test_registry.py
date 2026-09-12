@@ -76,12 +76,21 @@ class RegistryTests(IsolatedAsyncioTestCase):
 
     async def test_shared_device_and_other_integration_survive(self):
         device, entity = self.make_sensor("1.2.0")
-        self.devices.async_update_device(device.id, add_config_entry_id=self.other.entry_id)
+        if hasattr(device, "config_entry_id"):
+            other_device = self.devices.async_get_or_create(
+                config_entry_id=self.other.entry_id, identifiers={("nve_hydapi", "1.2.0")}
+            )
+        else:
+            other_device = self.devices.async_update_device(device.id, add_config_entry_id=self.other.entry_id)
         unrelated = self.entities.async_get_or_create(
             "sensor", "another_integration", "other-sensor", config_entry=self.other,
-            device_id=device.id,
+            device_id=other_device.id,
         )
         async_cleanup_registry(self.hass, self.entry)
         self.assertIsNone(self.entities.async_get(entity.entity_id))
         self.assertIsNotNone(self.entities.async_get(unrelated.entity_id))
-        self.assertEqual(self.devices.async_get(device.id).config_entries, {self.other.entry_id})
+        kept = self.devices.async_get(other_device.id)
+        if hasattr(kept, "config_entry_id"):
+            self.assertEqual(kept.config_entry_id, self.other.entry_id)
+        else:
+            self.assertEqual(kept.config_entries, {self.other.entry_id})
