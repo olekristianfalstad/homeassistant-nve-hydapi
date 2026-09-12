@@ -10,6 +10,7 @@ import time
 
 import requests
 from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / "ui-artifacts"
@@ -64,7 +65,15 @@ def onboard():
     return tokens, headers
 
 
-def add_integration(headers):
+def add_integration(headers, config_dir):
+    for _ in range(120):
+        response = requests.get(BASE + "/api/config", headers=headers, timeout=10)
+        response.raise_for_status()
+        if response.json().get("state") == "RUNNING":
+            break
+        time.sleep(1)
+    else:
+        raise AssertionError("Home Assistant did not finish startup")
     endpoint = BASE + "/api/config/config_entries/flow"
     response = requests.post(endpoint, headers=headers, json={"handler": "nve_hydapi", "show_advanced_options": False}, timeout=60)
     response.raise_for_status()
@@ -78,7 +87,17 @@ def add_integration(headers):
     for _ in range(60):
         states = requests.get(BASE + "/api/states", headers=headers, timeout=10).json()
         if any(s["attributes"].get("station_id") == "139.15.0" for s in states):
-            return flow["result"]["entry_id"]
+            entry_id = flow["result"]["entry_id"]
+            # HA delays storage writes. Do not stop the process before the fixture
+            # has actually been persisted for the upgrade/restart test.
+            storage = config_dir / ".storage" / "core.config_entries"
+            for _ in range(60):
+                if storage.exists():
+                    saved = json.loads(storage.read_text())["data"]["entries"]
+                    if any(entry["entry_id"] == entry_id for entry in saved):
+                        return entry_id
+                time.sleep(1)
+            raise AssertionError("Config entry was not persisted")
         time.sleep(1)
     raise AssertionError("Integration never loaded")
 
@@ -93,6 +112,10 @@ def check_dialogs(browser, name):
         page.locator('input[name="password"]').fill("local-test-only")
         page.get_by_role("button", name="Logg Inn", exact=True).click()
         page.wait_for_selector("home-assistant", timeout=60000)
+        try:
+            page.get_by_role("button", name="Confirm", exact=True).click(timeout=5000)
+        except PlaywrightTimeoutError:
+            pass  # No pending HTTP setup confirmation on this installation.
         gear = page.get_by_role("button", name=re.compile("alternativer|konfigurer|options|configure", re.I))
         gear.first.click(timeout=60000)
         expect(page.get_by_text("N\u00e5v\u00e6rende oppsett:", exact=False)).to_be_visible(timeout=30000)
@@ -105,14 +128,15 @@ def check_dialogs(browser, name):
         page.get_by_text("Behold valgte m\u00e5leserier", exact=False).first.click()
         page.get_by_text("Legg til m\u00e5leserier", exact=True).click()
         page.get_by_role("button", name="Send inn", exact=True).click()
-        station_input = page.get_by_role("combobox").first
-        station_input.fill("Bj\u00f8rn")
+        station_field = page.locator("ha-selector-select ha-picker-field")
+        station_field.click()
+        page.locator("ha-picker-combo-box ha-input-search input").fill("Bj\u00f8rn")
         # HA's editable selector keeps the selected full label, not the raw ID.
         page.get_by_text("Bj\u00f8rnstad [139.15.0] - Namsskogan", exact=True).last.click()
-        expect(station_input).to_have_value("Bj\u00f8rnstad [139.15.0] - Namsskogan")
+        expect(station_field.get_by_text("Bj\u00f8rnstad [139.15.0] - Namsskogan", exact=True)).to_be_visible()
         page.screenshot(path=str(ARTIFACTS / f"{name}-station.png"))
         page.get_by_role("button", name="Send inn", exact=True).click()
-        page.get_by_role("combobox").first.click()
+        page.locator("ha-selector-select ha-generic-picker ha-button").first.click()
         expect(page.get_by_text(re.compile("D\u00f8gn"))).to_be_visible()
         page.screenshot(path=str(ARTIFACTS / f"{name}-series.png"))
         return page.evaluate("document.querySelector('home-assistant').hass.callApi('GET', 'config/config_entries/entry')")
@@ -134,7 +158,7 @@ with sync_playwright() as playwright:
                 server = start_server(Path(directory), source, name + "-initial")
                 try:
                     tokens, headers = onboard()
-                    entry_id = add_integration(headers)
+                    entry_id = add_integration(headers, Path(directory))
                 finally:
                     stop_server(server)
                 # A full restart also verifies persisted entries, not just in-memory forms.
