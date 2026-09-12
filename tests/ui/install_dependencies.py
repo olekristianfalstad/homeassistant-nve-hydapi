@@ -8,7 +8,8 @@ import sys
 import homeassistant
 
 root = Path(homeassistant.__file__).parent
-pending = ["frontend", "config", "onboarding", "analytics", "cloud", "stream", "hassio", "camera"]
+pending = ["frontend", "config", "onboarding", "analytics", "cloud", "stream", "hassio", "camera",
+           "infrared", "radio_frequency", "ffmpeg", "tts", "conversation", "assist_pipeline"]
 seen = set()
 requirements = set()
 while pending:

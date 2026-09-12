@@ -83,13 +83,15 @@ def add_integration(headers):
     raise AssertionError("Integration never loaded")
 
 
-def check_dialogs(browser, tokens, name):
-    tokens = {**tokens, "hassUrl": BASE, "clientId": BASE + "/", "expires": int(time.time() * 1000) + 1800000}
+def check_dialogs(browser, name):
     context = browser.new_context(locale="nb-NO", viewport={"width": 1280, "height": 960})
-    context.add_init_script("localStorage.setItem('hassTokens', " + json.dumps(json.dumps(tokens)) + "); localStorage.setItem('selectedLanguage', 'nb');")
+    context.add_init_script("localStorage.setItem('selectedLanguage', 'nb');")
     page = context.new_page()
     try:
         page.goto(BASE + "/config/integrations/integration/nve_hydapi")
+        page.get_by_label("Brukernavn", exact=True).fill("hydapi", timeout=60000)
+        page.get_by_label("Passord", exact=True).fill("local-test-only")
+        page.get_by_role("button", name="Logg Inn", exact=True).click()
         page.wait_for_selector("home-assistant", timeout=60000)
         gear = page.get_by_role("button", name=re.compile("alternativer|konfigurer|options|configure", re.I))
         gear.first.click(timeout=60000)
@@ -112,9 +114,10 @@ def check_dialogs(browser, tokens, name):
         page.get_by_role("combobox").first.click()
         expect(page.get_by_text(re.compile("D\u00f8gn"))).to_be_visible()
         page.screenshot(path=str(ARTIFACTS / f"{name}-series.png"))
+        return page.evaluate("document.querySelector('home-assistant').hass.callApi('GET', 'config/config_entries/entry')")
     except Exception:
         page.screenshot(path=str(ARTIFACTS / f"{name}-failure.png"))
-        elements = page.locator("button,ha-button,ha-icon-button,input,ha-select").evaluate_all("els => els.map(e => ({tag:e.tagName,text:e.textContent,label:e.getAttribute('aria-label'),title:e.getAttribute('title')}))")
+        elements = page.locator("button,ha-button,ha-icon-button,input,ha-select").evaluate_all("els => els.map(e => ({tag:e.tagName,text:e.textContent,label:e.getAttribute('aria-label'),title:e.getAttribute('title'),name:e.getAttribute('name'),type:e.getAttribute('type'),autocomplete:e.getAttribute('autocomplete')}))")
         (ARTIFACTS / f"{name}-elements.json").write_text(json.dumps(elements, indent=2), encoding="utf-8")
         raise
     finally:
@@ -136,8 +139,7 @@ with sync_playwright() as playwright:
                 # A full restart also verifies persisted entries, not just in-memory forms.
                 server = start_server(Path(directory), ROOT, name + "-candidate")
                 try:
-                    check_dialogs(browser, tokens, name)
-                    entries = requests.get(BASE + "/api/config/config_entries/entry", headers=headers, timeout=30).json()
+                    entries = check_dialogs(browser, name)
                     assert any(e["entry_id"] == entry_id for e in entries)
                 finally:
                     stop_server(server)
