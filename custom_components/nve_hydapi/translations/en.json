@@ -3,7 +3,7 @@
   "config": {
     "step": {
       "user": {
-        "description": "You need a personal API key from NVE HydAPI to use this integration. Create or find your key at [hydapi.nve.no/Users](https://hydapi.nve.no/Users).",
+        "description": "You need a personal API key from NVE HydAPI to use this integration. Create or find your key at [hydapi.nve.no/Users]({api_key_url}).",
         "data": {
           "api_key": "HydAPI API key",
           "scan_interval": "Update interval"
@@ -39,14 +39,14 @@
       },
       "reauth_confirm": {
         "title": "Renew API key",
-        "description": "HydAPI rejected the stored API key. The new API key is checked before it is saved. Stations, measurement series and sensor IDs are preserved. Create a key at [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "description": "HydAPI rejected the stored API key. The new API key is checked before it is saved. Stations, measurement series and sensor IDs are preserved. Create a key at [NVE HydAPI]({api_key_url}).",
         "data": {
           "api_key": "New HydAPI API key"
         }
       },
       "reconfigure": {
         "title": "Change API key",
-        "description": "The new API key is checked before it is saved. Stations, measurement series and sensor IDs are preserved. Create a key at [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "description": "The new API key is checked before it is saved. Stations, measurement series and sensor IDs are preserved. Create a key at [NVE HydAPI]({api_key_url}).",
         "data": {
           "api_key": "New HydAPI API key"
         }

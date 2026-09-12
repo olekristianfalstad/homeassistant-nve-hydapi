@@ -23,8 +23,12 @@ class RegistryTests(IsolatedAsyncioTestCase):
         self.hass.config_entries.async_get_known_entry.side_effect = self.entries.__getitem__
         self.entry = self.make_entry("nve_hydapi")
         self.other = self.make_entry("another_integration")
-        self.devices = await dr.async_load(self.hass)
-        self.entities = await er.async_load(self.hass)
+        if hasattr(dr, "async_setup"):
+            dr.async_setup(self.hass)
+        await dr.async_load(self.hass)
+        await er.async_load(self.hass)
+        self.devices = dr.async_get(self.hass)
+        self.entities = er.async_get(self.hass)
 
     def make_entry(self, domain):
         entry = ConfigEntry(

@@ -10,7 +10,7 @@ target = config_dir / "custom_components" / "nve_hydapi"
 shutil.copytree(source / "custom_components" / "nve_hydapi", target, dirs_exist_ok=True)
 config_dir.joinpath("configuration.yaml").write_text(
     "homeassistant:\n  name: HydAPI UI Test\n  latitude: 63.4\n  longitude: 10.4\n"
-    "  elevation: 0\n  unit_system: metric\n  time_zone: Europe/Oslo\n  country: NO\n  language: nb\n"
+    "  elevation: 0\n  unit_system: metric\n  time_zone: Europe/Oslo\n  country: 'NO'\n  language: nb\n"
     "http:\n  server_host: 127.0.0.1\n  server_port: 8123\n"
     "frontend:\napi:\nconfig:\nmy:\n", encoding="utf-8"
 )

@@ -294,6 +294,7 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
+            description_placeholders={"api_key_url": "https://hydapi.nve.no/Users"},
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_API_KEY): TextSelector(
@@ -407,6 +408,7 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id=step_id,
+            description_placeholders={"api_key_url": "https://hydapi.nve.no/Users"},
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_API_KEY): TextSelector(

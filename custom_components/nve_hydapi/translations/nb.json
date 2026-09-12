@@ -3,7 +3,7 @@
   "config": {
     "step": {
       "user": {
-        "description": "Du trenger en personlig API-nøkkel fra NVE HydAPI for å bruke denne integrasjonen. Hent eller opprett nøkkel på [hydapi.nve.no/Users](https://hydapi.nve.no/Users).",
+        "description": "Du trenger en personlig API-nøkkel fra NVE HydAPI for å bruke denne integrasjonen. Hent eller opprett nøkkel på [hydapi.nve.no/Users]({api_key_url}).",
         "data": {
           "api_key": "HydAPI API-nøkkel",
           "scan_interval": "Oppdateringsintervall"
@@ -39,14 +39,14 @@
       },
       "reauth_confirm": {
         "title": "Forny API-nøkkel",
-        "description": "HydAPI har avvist den lagrede API-nøkkelen. En ny API-nøkkel kontrolleres før den lagres. Stasjoner, måleserier og sensor-ID-er beholdes. Opprett nøkkel hos [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "description": "HydAPI har avvist den lagrede API-nøkkelen. En ny API-nøkkel kontrolleres før den lagres. Stasjoner, måleserier og sensor-ID-er beholdes. Opprett nøkkel hos [NVE HydAPI]({api_key_url}).",
         "data": {
           "api_key": "Ny HydAPI API-nøkkel"
         }
       },
       "reconfigure": {
         "title": "Bytt API-nøkkel",
-        "description": "En ny API-nøkkel kontrolleres før den lagres. Stasjoner, måleserier og sensor-ID-er beholdes. Opprett nøkkel hos [NVE HydAPI](https://hydapi.nve.no/Users).",
+        "description": "En ny API-nøkkel kontrolleres før den lagres. Stasjoner, måleserier og sensor-ID-er beholdes. Opprett nøkkel hos [NVE HydAPI]({api_key_url}).",
         "data": {
           "api_key": "Ny HydAPI API-nøkkel"
         }
