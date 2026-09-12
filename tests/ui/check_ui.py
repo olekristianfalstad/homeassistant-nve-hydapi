@@ -133,7 +133,7 @@ def check_dialogs(browser, name):
         station_field.click()
         page.locator("ha-picker-combo-box ha-input-search input").fill("Bj\u00f8rn")
         # HA's editable selector keeps the selected full label, not the raw ID.
-        page.get_by_text("Bj\u00f8rnstad [139.15.0] - Namsskogan", exact=True).filter(visible=True).click()
+        page.locator("#list-item-0").get_by_text("Bj\u00f8rnstad [139.15.0] - Namsskogan", exact=True).click()
         expect(station_field.get_by_text("Bj\u00f8rnstad [139.15.0] - Namsskogan", exact=True).filter(visible=True)).to_be_visible()
         page.screenshot(path=str(ARTIFACTS / f"{name}-station.png"))
         page.get_by_role("button", name="Send inn", exact=True).click()
