@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.13
+
+- Handle timeouts, invalid JSON and malformed responses with translated, retryable form errors.
+- Confirm series removal before saving, remove its measurement/status registry entries and detach empty station devices without affecting other integrations.
+- Reconcile orphaned HydAPI registry entries left by earlier versions; retained sensor IDs, names and disabled preferences remain unchanged.
+- Add one diagnostic data-status sensor per series, with observation age, measurement timestamp and original NVE quality/correction codes in attributes.
+- Distinguish API connectivity from freshness: use a documented age heuristic, never treat missing values, NaN or invalid timestamps as current measurements.
+- Cache active stations in memory for four hours and share rate-limit cooldowns across setup, options and polling for the same API key.
+- Respect Retry-After and NVE reset headers without blocking the UI or repeatedly calling the API during the wait.
+- Translate resolution labels and sensor names; round temperatures to one decimal and other measurements to two.
+- Expand regression tests, add HACS/hassfest validation and real Norwegian frontend checks for fresh installation and upgrade from 0.1.12.
+- Document HACS installation, removal consequences, freshness rules and precision.
+
+Restart Home Assistant after updating. Registry entries for previously removed series are cleaned up during setup. No recorder/history purge is requested by this integration. Existing active measurement sensor IDs are preserved; additional diagnostic sensors are created.
+
 ## 0.1.12
 
 - Prevent measurements from being assigned to the wrong resolution by separating ambiguous station/parameter combinations into independent batches.

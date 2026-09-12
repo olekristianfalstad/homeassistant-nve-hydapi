@@ -58,7 +58,11 @@
       "invalid_auth": "HydAPI rejected the API key.",
       "invalid_station": "Select one of the suggested active stations.",
       "no_series": "No series were found for the selected station.",
-      "no_stations": "HydAPI returned no active stations."
+      "no_stations": "HydAPI returned no active stations.",
+      "timeout": "HydAPI did not respond within 30 seconds. Try again.",
+      "invalid_response": "HydAPI returned an invalid response. Try again later.",
+      "rate_limited": "HydAPI has asked us to wait before the next request. Try again later; the integration respects the retry window automatically.",
+      "invalid_series": "Select at least one valid measurement series."
     },
     "abort": {
       "already_configured": "NVE HydAPI is already configured.",
@@ -107,6 +111,14 @@
       "remove": {
         "data": {
           "series_to_remove": "Series to remove"
+        },
+        "description": "Select the measurement series to remove. Review and confirm the consequences before anything changes."
+      },
+      "confirm_remove": {
+        "title": "Confirm removal",
+        "description": "**{series}**\n\nThe measurement and its status sensor are removed from Home Assistant's entity registry. If this is the station's last series, this integration is also detached from the station device.\n\nThe integration does not directly delete history. Home Assistant retention rules still apply, and adding the series again may not reconnect its history. Update automations and dashboards that use these sensors.\n\nLeave the checkbox empty to return without removing the series.",
+        "data": {
+          "confirm": "Remove this measurement series and its sensors"
         }
       }
     },
@@ -116,7 +128,11 @@
       "invalid_auth": "HydAPI rejected the API key.",
       "invalid_station": "Select one of the suggested active stations.",
       "no_series": "No series were found for the selected station.",
-      "no_stations": "HydAPI returned no active stations."
+      "no_stations": "HydAPI returned no active stations.",
+      "timeout": "HydAPI did not respond within 30 seconds. Try again.",
+      "invalid_response": "HydAPI returned an invalid response. Try again later.",
+      "rate_limited": "HydAPI has asked us to wait before the next request. Try again later; the integration respects the retry window automatically.",
+      "invalid_series": "Select at least one valid measurement series."
     }
   },
   "selector": {
@@ -125,6 +141,53 @@
         "finish": "Keep selected measurement series",
         "add": "Add measurement series",
         "remove": "Remove measurement series"
+      }
+    },
+    "resolution": {
+      "options": {
+        "0": "Instantaneous",
+        "60": "Hourly",
+        "1440": "Daily"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "instantaneous": {
+        "name": "{parameter} Instantaneous"
+      },
+      "status_instantaneous": {
+        "name": "{parameter} Instantaneous data status",
+        "state": {
+          "current": "Current",
+          "stale": "Stale measurement",
+          "missing": "Missing measurement",
+          "invalid_time": "Invalid observation time"
+        }
+      },
+      "hourly": {
+        "name": "{parameter} Hourly"
+      },
+      "status_hourly": {
+        "name": "{parameter} Hourly data status",
+        "state": {
+          "current": "Current",
+          "stale": "Stale measurement",
+          "missing": "Missing measurement",
+          "invalid_time": "Invalid observation time"
+        }
+      },
+      "daily": {
+        "name": "{parameter} Daily"
+      },
+      "status_daily": {
+        "name": "{parameter} Daily data status",
+        "state": {
+          "current": "Current",
+          "stale": "Stale measurement",
+          "missing": "Missing measurement",
+          "invalid_time": "Invalid observation time"
+        }
       }
     }
   }

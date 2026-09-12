@@ -58,7 +58,11 @@
       "invalid_auth": "HydAPI avviste API-nøkkelen.",
       "invalid_station": "Velg en av de foreslåtte aktive stasjonene.",
       "no_series": "Fant ingen serier for den valgte stasjonen.",
-      "no_stations": "HydAPI returnerte ingen aktive stasjoner."
+      "no_stations": "HydAPI returnerte ingen aktive stasjoner.",
+      "timeout": "HydAPI svarte ikke innen 30 sekunder. Prøv igjen.",
+      "invalid_response": "HydAPI returnerte et ugyldig svar. Prøv igjen senere.",
+      "rate_limited": "HydAPI har bedt oss vente før neste forespørsel. Prøv igjen senere; integrasjonen respekterer ventetiden automatisk.",
+      "invalid_series": "Velg minst én gyldig måleserie."
     },
     "abort": {
       "already_configured": "NVE HydAPI er allerede satt opp.",
@@ -107,6 +111,14 @@
       "remove": {
         "data": {
           "series_to_remove": "Serie som skal fjernes"
+        },
+        "description": "Velg måleserien som skal fjernes. Du får se konsekvensene og bekrefte før noe endres."
+      },
+      "confirm_remove": {
+        "title": "Bekreft fjerning",
+        "description": "**{series}**\n\nMålesensoren og tilhørende statussensor fjernes fra Home Assistants entitetsregister. Hvis dette er siste serie ved stasjonen, fjernes også integrasjonens tilknytning til stasjonsenheten.\n\nIntegrasjonen sletter ikke historikk direkte. Home Assistants lagringsregler gjelder fortsatt, og historikken blir ikke nødvendigvis koblet til igjen dersom serien legges til på nytt. Automatiseringer og dashbord som bruker sensorene, må oppdateres.\n\nLa avhukingen stå tom for å gå tilbake uten å fjerne serien.",
+        "data": {
+          "confirm": "Fjern denne måleserien og sensorene"
         }
       }
     },
@@ -116,7 +128,11 @@
       "invalid_auth": "HydAPI avviste API-nøkkelen.",
       "invalid_station": "Velg en av de foreslåtte aktive stasjonene.",
       "no_series": "Fant ingen serier for den valgte stasjonen.",
-      "no_stations": "HydAPI returnerte ingen aktive stasjoner."
+      "no_stations": "HydAPI returnerte ingen aktive stasjoner.",
+      "timeout": "HydAPI svarte ikke innen 30 sekunder. Prøv igjen.",
+      "invalid_response": "HydAPI returnerte et ugyldig svar. Prøv igjen senere.",
+      "rate_limited": "HydAPI har bedt oss vente før neste forespørsel. Prøv igjen senere; integrasjonen respekterer ventetiden automatisk.",
+      "invalid_series": "Velg minst én gyldig måleserie."
     }
   },
   "selector": {
@@ -125,6 +141,53 @@
         "finish": "Behold valgte måleserier",
         "add": "Legg til måleserier",
         "remove": "Fjern måleserier"
+      }
+    },
+    "resolution": {
+      "options": {
+        "0": "Momentan",
+        "60": "Time",
+        "1440": "Døgn"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "instantaneous": {
+        "name": "{parameter} Momentan"
+      },
+      "status_instantaneous": {
+        "name": "{parameter} Momentan datastatus",
+        "state": {
+          "current": "Oppdatert",
+          "stale": "Gammel måling",
+          "missing": "Mangler måling",
+          "invalid_time": "Ugyldig måletid"
+        }
+      },
+      "hourly": {
+        "name": "{parameter} Time"
+      },
+      "status_hourly": {
+        "name": "{parameter} Time datastatus",
+        "state": {
+          "current": "Oppdatert",
+          "stale": "Gammel måling",
+          "missing": "Mangler måling",
+          "invalid_time": "Ugyldig måletid"
+        }
+      },
+      "daily": {
+        "name": "{parameter} Døgn"
+      },
+      "status_daily": {
+        "name": "{parameter} Døgn datastatus",
+        "state": {
+          "current": "Oppdatert",
+          "stale": "Gammel måling",
+          "missing": "Mangler måling",
+          "invalid_time": "Ugyldig måletid"
+        }
       }
     }
   }

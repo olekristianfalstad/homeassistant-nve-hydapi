@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import NveHydApiAuthError, NveHydApiClient, NveHydApiError, series_key
 from .const import (
@@ -34,6 +35,7 @@ class NveHydApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
         """Initialize the coordinator."""
         self.entry = entry
         self.client = client
+        self.last_successful_update = None
         minutes = int(entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL_MINUTES))
 
         super().__init__(
@@ -42,7 +44,7 @@ class NveHydApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
             config_entry=entry,
             name=DOMAIN,
             update_interval=timedelta(minutes=minutes),
-            always_update=False,
+            always_update=True,
         )
 
     @property
@@ -53,7 +55,10 @@ class NveHydApiCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]]):
     async def _async_update_data(self) -> dict[str, dict[str, Any]]:
         """Fetch data from HydAPI."""
         try:
-            return await self.client.async_fetch_observations(self.selected_series)
+            data = await self.client.async_fetch_observations(self.selected_series)
+            if self.selected_series:
+                self.last_successful_update = dt_util.utcnow()
+            return data
         except NveHydApiAuthError as err:
             raise ConfigEntryAuthFailed("HydAPI rejected the API key") from err
         except NveHydApiError as err:

@@ -10,7 +10,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.nve_hydapi.api import NveHydApiAuthError, NveHydApiError
+from custom_components.nve_hydapi.api import NveHydApiAuthError, NveHydApiError, NveHydApiTimeoutError
 from custom_components.nve_hydapi.config_flow import NveHydApiConfigFlow
 from custom_components.nve_hydapi.coordinator import NveHydApiCoordinator
 from custom_components.nve_hydapi.sensor import NveHydApiSensor
@@ -44,18 +44,12 @@ class CredentialTests(IsolatedAsyncioTestCase):
         self.flow.hass = self.hass
         self.flow.context = {"source": "reconfigure", "entry_id": self.entry.entry_id}
         self.client_patch = patch(
-            "custom_components.nve_hydapi.config_flow.NveHydApiClient"
+            "custom_components.nve_hydapi.config_flow.get_client"
         )
         self.client_type = self.client_patch.start()
         self.addCleanup(self.client_patch.stop)
         self.client = self.client_type.return_value
         self.client.async_validate_api_key = AsyncMock()
-        session_patch = patch(
-            "custom_components.nve_hydapi.config_flow.async_get_clientsession",
-            return_value=Mock(),
-        )
-        session_patch.start()
-        self.addCleanup(session_patch.stop)
 
     async def test_opening_or_cancelling_does_not_expose_or_replace_key(self):
         result = await self.flow.async_step_reconfigure()
@@ -116,7 +110,7 @@ class CredentialTests(IsolatedAsyncioTestCase):
             for error, expected in (
                 (NveHydApiAuthError(), "invalid_auth"),
                 (NveHydApiError(), "cannot_connect"),
-                (TimeoutError(), "cannot_connect"),
+                (NveHydApiTimeoutError(), "timeout"),
             ):
                 with self.subTest(source=source, error=type(error).__name__):
                     self.client.async_validate_api_key.side_effect = error

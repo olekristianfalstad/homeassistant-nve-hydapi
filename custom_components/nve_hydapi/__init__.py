@@ -5,19 +5,18 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-from .api import NveHydApiClient
 from .const import DOMAIN
 from .coordinator import NveHydApiCoordinator
+from .registry import async_cleanup_registry
+from .runtime import get_client
 
 PLATFORMS = [Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up NVE HydAPI from a config entry."""
-    session = async_get_clientsession(hass)
-    client = NveHydApiClient(session, entry.data[CONF_API_KEY])
+    async_cleanup_registry(hass, entry)
+    client = get_client(hass, entry.data[CONF_API_KEY])
     coordinator = NveHydApiCoordinator(hass, entry, client)
 
     await coordinator.async_config_entry_first_refresh()

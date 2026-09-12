@@ -15,6 +15,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity import EntityCategory
+from homeassistant.util import dt as dt_util
 
 from .api import series_key
 from .const import (
@@ -23,11 +25,13 @@ from .const import (
     DOMAIN,
     INTEGRATION_URL,
     MANUFACTURER,
-    RESOLUTION_LABELS,
+    RESOLUTION_TRANSLATION_KEYS,
+    VALUE_PRECISION,
 )
 from .coordinator import NveHydApiCoordinator
+from .observation import observation_status, valid_value
 
-VALUE_PRECISION = 2
+PARALLEL_UPDATES = 0
 
 
 async def async_setup_entry(
@@ -38,7 +42,9 @@ async def async_setup_entry(
     """Set up NVE HydAPI sensors."""
     coordinator: NveHydApiCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
-        NveHydApiSensor(coordinator, series) for series in entry.options.get(CONF_SERIES, [])
+        entity(coordinator, series)
+        for series in entry.options.get(CONF_SERIES, [])
+        for entity in (NveHydApiSensor, NveHydApiStatusSensor)
     )
 
 
@@ -47,7 +53,6 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
 
     _attr_has_entity_name = True
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = VALUE_PRECISION
 
     def __init__(
         self,
@@ -59,7 +64,17 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
         self._series = selected_series
         self._key = series_key(selected_series)
         self._attr_unique_id = f"{DOMAIN}_{self._key}"
-        self._attr_name = self._sensor_name
+        self._precision = VALUE_PRECISION.get(int(selected_series["parameter"]), 2)
+        self._attr_suggested_display_precision = self._precision
+        if custom_name := selected_series.get(CONF_CUSTOM_NAME):
+            self._attr_name = custom_name
+        else:
+            self._attr_translation_key = RESOLUTION_TRANSLATION_KEYS.get(
+                str(selected_series["resolution_time"]), "instantaneous"
+            )
+            self._attr_translation_placeholders = {
+                "parameter": selected_series.get("parameter_name") or str(selected_series["parameter"])
+            }
         self._attr_native_unit_of_measurement = selected_series.get("unit")
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, selected_series["station_id"])},
@@ -76,9 +91,9 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
         if item is None:
             return None
         value = item.get("value")
-        if not isinstance(value, (float, int)):
+        if not valid_value(value):
             return None
-        return round(value, VALUE_PRECISION)
+        return round(value, self._precision)
 
     @property
     def available(self) -> bool:
@@ -96,11 +111,11 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
             "parameter": series["parameter"],
             "parameter_name": series.get("parameter_name"),
             "resolution_time": series["resolution_time"],
-            "resolution": RESOLUTION_LABELS.get(
-                str(series["resolution_time"]), str(series["resolution_time"])
-            ),
             "nve_license": "https://data.norge.no/nlod/no",
         }
+        attrs.update(observation_status(item, str(series["resolution_time"]), dt_util.utcnow()))
+        if self.coordinator.last_successful_update is not None:
+            attrs["last_successful_update"] = self.coordinator.last_successful_update.isoformat()
 
         if series.get("version_number") is not None:
             attrs["version_number"] = series["version_number"]
@@ -119,21 +134,6 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get(self._key)
-
-    @property
-    def _sensor_name(self) -> str:
-        """Return the display name for the sensor."""
-        custom_name = self._series.get(CONF_CUSTOM_NAME)
-        if custom_name:
-            return custom_name
-
-        parameter_name = self._series.get("parameter_name") or str(
-            self._series["parameter"]
-        )
-        resolution = RESOLUTION_LABELS.get(
-            str(self._series["resolution_time"]), str(self._series["resolution_time"])
-        )
-        return f"{parameter_name} {resolution}"
 
     def _set_device_class_and_icon(self) -> None:
         """Set Home Assistant metadata based on parameter/unit."""
@@ -155,3 +155,36 @@ class NveHydApiSensor(CoordinatorEntity[NveHydApiCoordinator], SensorEntity):
             self._attr_icon = "mdi:water"
         else:
             self._attr_icon = "mdi:chart-line"
+
+
+class NveHydApiStatusSensor(NveHydApiSensor):
+    """A visible diagnostic state separate from the measurement's availability."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_state_class = None
+    _attr_options = ["current", "stale", "missing", "invalid_time"]
+
+    def __init__(self, coordinator: NveHydApiCoordinator, selected_series: dict[str, Any]) -> None:
+        super().__init__(coordinator, selected_series)
+        self._attr_unique_id = f"{DOMAIN}_{self._key}_status"
+        self.__dict__.pop("_attr_name", None)
+        resolution = RESOLUTION_TRANSLATION_KEYS.get(str(selected_series["resolution_time"]), "instantaneous")
+        self._attr_translation_key = f"status_{resolution}"
+        self._attr_translation_placeholders = {
+            "parameter": selected_series.get(CONF_CUSTOM_NAME)
+            or selected_series.get("parameter_name") or str(selected_series["parameter"])
+        }
+        self._attr_device_class = SensorDeviceClass.ENUM
+        self._attr_native_unit_of_measurement = None
+        self._attr_suggested_display_precision = None
+        self._attr_icon = "mdi:database-clock"
+
+    @property
+    def native_value(self) -> str:
+        return observation_status(
+            self._coordinator_item or {}, str(self._series["resolution_time"]), dt_util.utcnow()
+        )["data_status"]
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success

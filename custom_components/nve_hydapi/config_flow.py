@@ -9,7 +9,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -22,7 +22,11 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import NveHydApiAuthError, NveHydApiClient, NveHydApiError
+from .api import (
+    NveHydApiAuthError, NveHydApiError, NveHydApiRateLimitError,
+    NveHydApiResponseError, NveHydApiTimeoutError, series_key,
+)
+from .runtime import get_client
 from .const import (
     CONF_ADD_ANOTHER,
     CONF_CUSTOM_NAME,
@@ -40,8 +44,27 @@ async def _load_active_station_options(
     hass: HomeAssistant, api_key: str
 ) -> dict[str, str]:
     """Validate the API key and return searchable active station options."""
-    client = NveHydApiClient(async_get_clientsession(hass), api_key)
+    client = get_client(hass, api_key)
     return _build_station_options(await client.async_get_active_stations())
+
+
+def _error_key(error: NveHydApiError) -> str:
+    """Map transport errors to actionable translated messages."""
+    if isinstance(error, NveHydApiTimeoutError):
+        return "timeout"
+    if isinstance(error, NveHydApiResponseError):
+        return "invalid_response"
+    if isinstance(error, NveHydApiRateLimitError):
+        return "rate_limited"
+    return "cannot_connect"
+
+
+async def _resolution_labels(hass: HomeAssistant) -> dict[str, str]:
+    translations = await async_get_translations(hass, hass.config.language, "selector", {DOMAIN})
+    return {
+        key: translations.get(f"component.{DOMAIN}.selector.resolution.options.{key}", value)
+        for key, value in RESOLUTION_LABELS.items()
+    }
 
 
 def _scan_interval_selector(default: int) -> NumberSelector:
@@ -57,9 +80,9 @@ def _scan_interval_selector(default: int) -> NumberSelector:
     )
 
 
-def _series_option_label(series: dict[str, Any]) -> str:
+def _series_option_label(series: dict[str, Any], labels: dict[str, str]) -> str:
     """Build a human readable label for one selected series."""
-    resolution = RESOLUTION_LABELS.get(
+    resolution = labels.get(
         str(series["resolution_time"]), str(series["resolution_time"])
     )
     unit = f" ({series['unit']})" if series.get("unit") else ""
@@ -130,7 +153,16 @@ def _build_choices(series_list: list[dict[str, Any]]) -> dict[str, dict[str, Any
     """Convert HydAPI series metadata to selectable choices."""
     choices: dict[str, dict[str, Any]] = {}
     for series in series_list:
-        for resolution in series.get("resolutionList") or []:
+        resolutions = series.get("resolutionList") or []
+        if not isinstance(resolutions, list) or not series.get("stationId"):
+            raise NveHydApiResponseError("Invalid series metadata")
+        try:
+            parameter = int(series["parameter"])
+        except (KeyError, ValueError, TypeError) as err:
+            raise NveHydApiResponseError("Invalid series parameter") from err
+        for resolution in resolutions:
+            if not isinstance(resolution, dict) or str(resolution.get("resTime")) not in RESOLUTION_LABELS:
+                raise NveHydApiResponseError("Invalid series resolution")
             res_time = str(resolution.get("resTime"))
             version = series.get("versionNo")
             key = "|".join(
@@ -144,7 +176,7 @@ def _build_choices(series_list: list[dict[str, Any]]) -> dict[str, dict[str, Any
             choices[key] = {
                 "station_id": str(series.get("stationId")),
                 "station_name": series.get("stationName"),
-                "parameter": int(series.get("parameter")),
+                "parameter": parameter,
                 "parameter_name": series.get("parameterName"),
                 "unit": series.get("unit"),
                 "resolution_time": res_time,
@@ -244,7 +276,7 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
 
         if user_input is not None:
-            self._api_key = user_input[CONF_API_KEY]
+            self._api_key = user_input[CONF_API_KEY].strip()
             self._scan_interval = int(user_input[CONF_SCAN_INTERVAL])
             try:
                 self._station_options = await _load_active_station_options(
@@ -252,8 +284,8 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             except NveHydApiAuthError:
                 errors["base"] = "invalid_auth"
-            except NveHydApiError:
-                errors["base"] = "cannot_connect"
+            except NveHydApiError as err:
+                errors["base"] = _error_key(err)
             else:
                 if not self._station_options:
                     errors["base"] = "no_stations"
@@ -295,15 +327,15 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     errors=errors,
                 )
 
-            client = NveHydApiClient(async_get_clientsession(self.hass), self._api_key)
+            client = get_client(self.hass, self._api_key)
             try:
                 series_list = await client.async_get_station_series(station_id)
+                self._choices = _build_choices(series_list)
             except NveHydApiAuthError:
                 errors["base"] = "invalid_auth"
-            except NveHydApiError:
-                errors["base"] = "cannot_connect"
+            except NveHydApiError as err:
+                errors["base"] = _error_key(err)
             else:
-                self._choices = _build_choices(series_list)
                 if not self._choices:
                     errors["base"] = "no_series"
                 else:
@@ -350,13 +382,13 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not api_key:
                 errors[CONF_API_KEY] = "invalid_auth"
             else:
-                client = NveHydApiClient(async_get_clientsession(self.hass), api_key)
+                client = get_client(self.hass, api_key)
                 try:
                     await client.async_validate_api_key()
                 except NveHydApiAuthError:
                     errors["base"] = "invalid_auth"
-                except (NveHydApiError, TimeoutError):
-                    errors["base"] = "cannot_connect"
+                except NveHydApiError as err:
+                    errors["base"] = _error_key(err)
                 else:
                     changed = self.hass.config_entries.async_update_entry(
                         entry=entry, data={**entry.data, CONF_API_KEY: api_key}
@@ -394,7 +426,9 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             choice_keys = _selected_choice_keys(user_input)
             custom_name = (user_input.get(CONF_CUSTOM_NAME) or "").strip()
-            if custom_name and len(choice_keys) > 1:
+            if not choice_keys or any(key not in self._choices for key in choice_keys):
+                errors[CONF_SERIES] = "invalid_series"
+            elif custom_name and len(choice_keys) > 1:
                 errors[CONF_CUSTOM_NAME] = "custom_name_single_series"
             else:
                 _append_selected_choices(
@@ -409,7 +443,8 @@ class NveHydApiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 return self._create_entry()
 
-        options = {key: _series_option_label(value) for key, value in self._choices.items()}
+        labels = await _resolution_labels(self.hass)
+        options = {key: _series_option_label(value, labels) for key, value in self._choices.items()}
         return self.async_show_form(
             step_id="series",
             data_schema=_select_schema(options),
@@ -455,6 +490,7 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
         self._selected_series = list(config_entry.options.get(CONF_SERIES, []))
         self._station_options: dict[str, str] = {}
         self._choices: dict[str, dict[str, Any]] = {}
+        self._series_to_remove: dict[str, Any] | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -472,8 +508,8 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
                     )
                 except NveHydApiAuthError:
                     errors["base"] = "invalid_auth"
-                except NveHydApiError:
-                    errors["base"] = "cannot_connect"
+                except NveHydApiError as err:
+                    errors["base"] = _error_key(err)
                 else:
                     if not self._station_options:
                         errors["base"] = "no_stations"
@@ -533,18 +569,15 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
                     errors=errors,
                 )
 
-            client = NveHydApiClient(
-                async_get_clientsession(self.hass),
-                self._config_entry.data[CONF_API_KEY],
-            )
+            client = get_client(self.hass, self._config_entry.data[CONF_API_KEY])
             try:
                 series_list = await client.async_get_station_series(station_id)
+                self._choices = _build_choices(series_list)
             except NveHydApiAuthError:
                 errors["base"] = "invalid_auth"
-            except NveHydApiError:
-                errors["base"] = "cannot_connect"
+            except NveHydApiError as err:
+                errors["base"] = _error_key(err)
             else:
-                self._choices = _build_choices(series_list)
                 if not self._choices:
                     errors["base"] = "no_series"
                 else:
@@ -565,7 +598,9 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             choice_keys = _selected_choice_keys(user_input)
             custom_name = (user_input.get(CONF_CUSTOM_NAME) or "").strip()
-            if custom_name and len(choice_keys) > 1:
+            if not choice_keys or any(key not in self._choices for key in choice_keys):
+                errors[CONF_SERIES] = "invalid_series"
+            elif custom_name and len(choice_keys) > 1:
                 errors[CONF_CUSTOM_NAME] = "custom_name_single_series"
             else:
                 _append_selected_choices(
@@ -578,7 +613,8 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
                     return await self.async_step_continue()
                 return self._save_options()
 
-        options = {key: _series_option_label(value) for key, value in self._choices.items()}
+        labels = await _resolution_labels(self.hass)
+        options = {key: _series_option_label(value, labels) for key, value in self._choices.items()}
         return self.async_show_form(
             step_id="series",
             data_schema=_select_schema(options),
@@ -607,17 +643,24 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
         if not self._selected_series:
             return self._save_options()
 
+        errors = {}
         if user_input is not None:
-            index = int(user_input[CONF_SERIES_TO_REMOVE])
-            self._selected_series.pop(index)
-            return self._save_options()
+            self._series_to_remove = next(
+                (series for series in self._selected_series
+                 if series_key(series) == user_input[CONF_SERIES_TO_REMOVE]), None
+            )
+            if self._series_to_remove is not None:
+                return await self.async_step_confirm_remove()
+            errors[CONF_SERIES_TO_REMOVE] = "invalid_series"
 
+        labels = await _resolution_labels(self.hass)
         options = [
-            {"value": str(index), "label": _series_option_label(series)}
-            for index, series in enumerate(self._selected_series)
+            {"value": series_key(series), "label": _series_option_label(series, labels)}
+            for series in self._selected_series
         ]
         return self.async_show_form(
             step_id="remove",
+            errors=errors,
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_SERIES_TO_REMOVE): SelectSelector(
@@ -628,6 +671,27 @@ class NveHydApiOptionsFlow(config_entries.OptionsFlow):
                     )
                 }
             ),
+        )
+
+    async def async_step_confirm_remove(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Only commit removal after the consequences have been confirmed."""
+        if self._series_to_remove is None:
+            return await self.async_step_init()
+        if user_input is not None:
+            if user_input["confirm"]:
+                key = series_key(self._series_to_remove)
+                self._selected_series = [s for s in self._selected_series if series_key(s) != key]
+                self._series_to_remove = None
+                return self._save_options()
+            self._series_to_remove = None
+            return await self.async_step_init()
+        labels = await _resolution_labels(self.hass)
+        return self.async_show_form(
+            step_id="confirm_remove",
+            data_schema=vol.Schema({vol.Required("confirm", default=False): bool}),
+            description_placeholders={"series": _series_option_label(self._series_to_remove, labels)},
         )
 
     def _save_options(self) -> config_entries.ConfigFlowResult:

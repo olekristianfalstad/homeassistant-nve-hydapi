@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+from copy import deepcopy
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from math import isfinite
+from time import monotonic
 from typing import Any
 
-from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout, ContentTypeError
 
 from .const import HYDAPI_BASE_URL
+from .observation import observation_time
+
+STATION_CACHE_SECONDS = 4 * 60 * 60
 
 class NveHydApiError(Exception):
     """Base error for NVE HydAPI."""
@@ -18,6 +27,36 @@ class NveHydApiAuthError(NveHydApiError):
 
 class NveHydApiRateLimitError(NveHydApiError):
     """HydAPI rate limit was reached."""
+
+
+class NveHydApiTimeoutError(NveHydApiError):
+    """HydAPI did not respond in time."""
+
+
+class NveHydApiResponseError(NveHydApiError):
+    """HydAPI returned an unreadable or malformed response."""
+
+
+def _retry_delay(headers: Any) -> float:
+    """Read standard Retry-After and HydAPI reset timestamps conservatively."""
+    delays = []
+    now = datetime.now(UTC)
+    for name in ("Retry-After", "x-rate-limit-reset"):
+        value = headers.get(name) if headers else None
+        if not isinstance(value, str):
+            continue
+        try:
+            number = float(value)
+            delay = number if name == "Retry-After" else number - now.timestamp()
+        except ValueError:
+            try:
+                reset = observation_time(value) or parsedate_to_datetime(value)
+                delay = (reset - now).total_seconds()
+            except (TypeError, ValueError, OverflowError):
+                continue
+        if isfinite(delay) and delay > 0:
+            delays.append(delay)
+    return max(delays, default=600)
 
 
 def series_key(series: dict[str, Any]) -> str:
@@ -37,13 +76,22 @@ class NveHydApiClient:
         """Initialize the client."""
         self._session = session
         self._api_key = api_key
+        self._blocked_until = 0.0
+        self._stations: list[dict[str, Any]] | None = None
+        self._stations_expire = 0.0
+        self._station_lock = asyncio.Lock()
+        self._request_lock = asyncio.Lock()
 
     async def async_get_active_stations(self) -> list[dict[str, Any]]:
         """Return all active HydAPI stations."""
-        result = await self._request(
-            "GET", "/Stations", params={"Active": "OnlyActive"}
-        )
-        return result.get("data") or []
+        async with self._station_lock:
+            if self._stations is None or monotonic() >= self._stations_expire:
+                result = await self._request(
+                    "GET", "/Stations", params={"Active": "OnlyActive"}
+                )
+                self._stations = result["data"]
+                self._stations_expire = monotonic() + STATION_CACHE_SECONDS
+            return deepcopy(self._stations)
 
     async def async_validate_api_key(self) -> None:
         """Validate credentials using the small parameter catalogue."""
@@ -116,7 +164,16 @@ class NveHydApiClient:
                 seen.add(key)
 
                 observations = data_item.get("observations") or []
-                latest = observations[-1] if observations else {}
+                if not isinstance(observations, list) or any(
+                    not isinstance(item, dict) for item in observations
+                ):
+                    raise NveHydApiResponseError("Invalid observations list")
+                latest = max(
+                    observations,
+                    key=lambda item: observation_time(item.get("time"))
+                    or datetime.min.replace(tzinfo=UTC),
+                    default={},
+                )
                 values[key] = {
                     "series": values[key]["series"],
                     "value": latest.get("value"),
@@ -136,12 +193,23 @@ class NveHydApiClient:
         params: dict[str, str] | None = None,
         json: Any | None = None,
     ) -> dict[str, Any]:
+        """Serialize requests so all flows respect the same rate-limit window."""
+        async with self._request_lock:
+            if monotonic() < self._blocked_until:
+                raise NveHydApiRateLimitError("HydAPI retry window has not elapsed")
+            return await self._perform_request(method, path, params=params, json=json)
+
+    async def _perform_request(
+        self, method: str, path: str, *,
+        params: dict[str, str] | None, json: Any | None,
+    ) -> dict[str, Any]:
         """Call HydAPI and return decoded JSON."""
         headers = {
             "Accept": "application/json",
             "X-API-Key": self._api_key,
         }
 
+        response = None
         try:
             response = await self._session.request(
                 method,
@@ -152,15 +220,33 @@ class NveHydApiClient:
                 timeout=ClientTimeout(total=30),
             )
             response.raise_for_status()
-            return await response.json()
+            if response.headers.get("x-rate-limit-remaining") == "0":
+                self._blocked_until = monotonic() + _retry_delay(response.headers)
+            result = await response.json()
+            if (
+                not isinstance(result, dict)
+                or not isinstance(result.get("data"), list)
+                or any(not isinstance(item, dict) for item in result["data"])
+            ):
+                raise NveHydApiResponseError("Invalid HydAPI response structure")
+            return result
+        except (ContentTypeError, ValueError) as err:
+            raise NveHydApiResponseError("HydAPI returned invalid JSON") from err
+        except TimeoutError as err:
+            raise NveHydApiTimeoutError("HydAPI request timed out") from err
         except ClientResponseError as err:
             if err.status in (401, 403):
+                self._stations = None
                 raise NveHydApiAuthError("HydAPI rejected the API key") from err
             if err.status == 429:
+                self._blocked_until = monotonic() + _retry_delay(err.headers)
                 raise NveHydApiRateLimitError("HydAPI rate limit reached") from err
             raise NveHydApiError(f"HydAPI returned HTTP {err.status}") from err
         except ClientError as err:
             raise NveHydApiError("Could not connect to HydAPI") from err
+        finally:
+            if response is not None:
+                response.release()
 
     @staticmethod
     def _match_response_to_config(

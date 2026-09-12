@@ -22,7 +22,10 @@ INTEGRATION_URL = "https://github.com/olekristianfalstad/"
 MANUFACTURER = "NVE"
 
 RESOLUTION_LABELS = {
-    "0": "Momentan",
-    "60": "Time",
-    "1440": "Dogn",
+    "0": "Instantaneous",
+    "60": "Hourly",
+    "1440": "Daily",
 }
+
+RESOLUTION_TRANSLATION_KEYS = {"0": "instantaneous", "60": "hourly", "1440": "daily"}
+VALUE_PRECISION = {17: 1, 1003: 1, 1000: 2, 1001: 2}
